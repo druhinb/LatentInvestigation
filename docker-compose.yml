@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  ssl-probing:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ssl-probing:latest
+    container_name: ssl-probing-dev
+    
+    # GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    # Volumes
+    volumes:
+      # Mount current directory
+      - .:/workspace
+      # Mount data directory
+      - ${DATA_DIR:-./data}:/workspace/data
+      # Mount HuggingFace cache
+      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ~/.cache/torch:/root/.cache/torch
+    
+    # Environment variables
+    environment:
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      - WANDB_API_KEY=${WANDB_API_KEY}
+      - HF_TOKEN=${HF_TOKEN}
+      - PYTHONPATH=/workspace
+    
+    # Ports
+    ports:
+      - "8888:8888"  # Jupyter
+      - "6006:6006"  # TensorBoard
+      
+    # Keep container running
+    stdin_open: true
+    tty: true
+    
+    # Run with virtual display for rendering
+    command: /bin/bash -c "Xvfb :99 -screen 0 1024x768x24 -nolisten tcp -nolisten unix & /bin/bash"
+    
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ssl-probing:latest
+    container_name: ssl-probing-jupyter
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    volumes:
+      - .:/workspace
+      - ${DATA_DIR:-./data}:/workspace/data
+      - ~/.cache/huggingface:/root/.cache/huggingface
+    
+    environment:
+      - CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+      - JUPYTER_ENABLE_LAB=yes
+    
+    ports:
+      - "8889:8888"
+      
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
