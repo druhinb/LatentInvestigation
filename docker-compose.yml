@@ -5,8 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ssl-probing:latest
-    container_name: ssl-probing-dev
+    image: LatentInvestigation:latest
+    container_name:  LatentInvestigation-dev
     
     # GPU support
     deploy:
@@ -50,8 +50,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ssl-probing:latest
-    container_name: ssl-probing-jupyter
+    image: LatentInvestigation:latest
+    container_name: LatentInvestigation-jupyter
     
     deploy:
       resources:
