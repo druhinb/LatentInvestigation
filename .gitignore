@@ -14,10 +14,22 @@ ENV/
 
 # Data and models
 data/
+data/*
+*.tgz
+*.tar.gz
+*.zip
+ShapeNetRendering/
+ShapeNetRendering.tgz
 checkpoints/
 *.pth
 *.pt
 *.ckpt
+
+# Dataset files
+train.lst
+val.lst
+test.lst
+*.lst
 
 # Results
 results/

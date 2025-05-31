@@ -1,0 +1,16 @@
+# Main configuration file
+defaults:
+  - datasets: shapenet_3dr2n2
+  - _self_
+
+# Global settings
+data_dir: ./data
+seed: 42
+
+# Experiment settings
+experiment:
+  name: shapenet_baseline
+  version: 1
+
+# Logging
+log_level: INFO

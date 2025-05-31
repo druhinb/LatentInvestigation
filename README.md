@@ -71,7 +71,18 @@ PLACEHOLDER
 
 ### 2. Prepare Datasets
 
-PLACEHOLDER
+We use the ShapeNet 3D-R2N2 dataset for our probing experiments:
+
+```bash
+# Quick setup - downloads and prepares dataset automatically
+python scripts/prepare_3dr2n2.py
+
+# Or with custom settings
+python scripts/prepare_3dr2n2.py \
+  datasets.categories=[chair,car,airplane] \
+  datasets.splits.train_ratio=0.8
+```
+
 
 
 ### 3. Run Probing Experiments

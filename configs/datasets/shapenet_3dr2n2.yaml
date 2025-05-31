@@ -1,0 +1,43 @@
+
+# ShapeNet 3D-R2N2 Dataset Configuration
+_target_: src.datasets.shapenet_3dr2n2.ShapeNet3DR2N2
+
+name: shapenet_3dr2n2
+root: ${oc.env:DATA_DIR,./data}/ShapeNetRendering
+categories: null  # null for all categories, or list like [airplane, car, chair, table]
+
+# Dataset preparation options
+preparation:
+  tar_path: null  # Path to existing .tgz file, null to download
+  url: "http://cvgl.stanford.edu/data2/ShapeNetRendering.tgz"
+  auto_download: true  # Whether to auto-download if not found
+
+# Transform pipeline
+transform:
+  _target_: torchvision.transforms.Compose
+  transforms:
+    - _target_: torchvision.transforms.Resize
+      size: 256
+    - _target_: torchvision.transforms.CenterCrop
+      size: 224
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+
+# DataLoader configuration
+dataloader:
+  batch_size: 32
+  num_workers: 4
+  pin_memory: true
+  drop_last: true  # Only applies to training split
+
+# Dataset splits
+splits:
+  train: train
+  val: val
+  test: test
+  # Split generation options (used when split files don't exist)
+  train_ratio: 0.7
+  val_ratio: 0.15
+  seed: 42
