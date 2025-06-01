@@ -118,19 +118,77 @@ class MLPProbe(nn.Module):
             bias: Whether to use bias in linear layers
         """
         super().__init__()
-        pass
+        
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.hidden_dims = hidden_dims
+        self.task_type = task_type.lower()
+        self.activation = activation.lower()
+        self.batch_hnorm = batch_norm
+        self.bias = bias
+
+        if self.task_type not in ["regression", "classification"]:
+            raise ValueError(
+                f"task_type must be 'regression' or 'classification', got {task_type}"
+            )
+        
+        if self.activation not in ["relu", "gelu", "tanh"]:
+            raise ValueError(
+                f"activation must be 'relu', 'gelu', or 'tanh', got {activation}"
+            )
+        
+        if dropout_rate < 0 or dropout_rate > 1:
+            raise ValueError(
+                f"invalid dropout rate: {dropout_rate}"
+            )
+        
+        self._build_mlp(dropout_rate, batch_norm, bias)
+
+        # Initialize weights
+        self._init_weights()
 
     def _get_activation_function(self):
         """Get activation function from string"""
-        pass
+        if self.activation == 'relu':
+            return nn.ReLU()
+        elif self.activation == 'gelu':
+            return nn.GELU()
+        elif self.activation == 'tanh':
+            return nn.Tanh()
 
     def _build_mlp(self, dropout_rate: float, batch_norm: bool, bias: bool):
         """Build the MLP architecture"""
-        pass
+        layer_dims = [self.input_dim] + self.hidden_dims + [self.output_dim]
+        layers = []
+        
+        for i in range(len(layer_dims) - 1):
+            cin = layer_dims[i]
+            cout = layer_dims[i+1]
+            
+            # Add dropout if requested
+            if dropout_rate > 0:
+                layers.append(nn.Dropout(dropout_rate))
+
+            layers.append(nn.Linear(cin, cout, bias=bias))
+            
+            # Only add BN + activation for hidden layers (is this better for probes?)
+            if i < len(layer_dims) - 2:
+                # Add batchnorm if requested
+                if batch_norm:
+                    layers.append(nn.BatchNorm1d(cout))  # should we implement a batchnorm config section that allows us to change eps, momentum, etc.
+                                
+                layers.append(self._get_activation_function())
+
+        self.mlp_probe = nn.Sequential(*layers)
 
     def _init_weights(self):
         """Initialize MLP weights"""
-        pass
+        for module in self.mlp_probe:
+            if isinstance(module, nn.Linear):
+                # Xavier/Glorot initialization for all linear layers
+                nn.init.xavier_uniform_(module.weight)
+                if module.bias is not None:
+                    nn.init.zeros_(module.bias)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -142,12 +200,14 @@ class MLPProbe(nn.Module):
         Returns:
             Output predictions [batch_size, output_dim]
         """
-        pass
+        return self.mlp_probe(x)
 
     def get_loss_function(self):
         """Get appropriate loss function for the task"""
-        pass
-
+        if self.task_type == "regression":
+            return nn.MSELoss()
+        elif self.task_type == "classification":
+            return nn.CrossEntropyLoss()
 
 class AttentionProbe(nn.Module):
     """Probe with attention mechanism over patch tokens"""
