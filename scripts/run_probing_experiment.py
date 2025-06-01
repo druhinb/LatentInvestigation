@@ -11,6 +11,7 @@ from pathlib import Path
 import logging
 import wandb
 from typing import Dict, List, Tuple, Optional
+from tqdm import tqdm
 
 # Import our modules
 from src.models.feature_extractor import FeatureExtractor, load_feature_extractor
@@ -36,9 +37,17 @@ class ProbingExperiment:
 
     def __init__(self, config: DictConfig):
         self.config = config
-        self.device = config.get(
-            "device", "cuda" if torch.cuda.is_available() else "cpu"
-        )
+        # Determine device: prioritize models.device, then top-level device, then auto-detect
+        device_to_use = config.models.get("device", config.get("device"))
+        if device_to_use:
+            self.device = device_to_use
+        else:
+            self.device = (
+                "cuda"
+                if torch.cuda.is_available()
+                else "mps" if torch.backends.mps.is_available() else "cpu"
+            )
+        logger.info(f"Using device: {self.device}")
 
         # Initialize wandb
         if config.get("wandb", {}).get("enabled", False):
@@ -63,8 +72,8 @@ class ProbingExperiment:
         logger.info("Starting probing experiment...")
 
         # Load dataset and feature extractor
-        train_loader, val_loader, test_loader = self._load_dataset()
         feature_extractor = self._load_feature_extractor()
+        train_loader, val_loader, test_loader = self._load_dataset()
 
         # Get experiment configuration
         extraction_config = self.config.models.get("feature_extraction", {})
@@ -74,7 +83,7 @@ class ProbingExperiment:
 
         # Run layer-wise probing
         results = {}
-        for layer in layers:
+        for layer in tqdm(layers):
             logger.info(f"Processing layer {layer}...")
 
             # Extract features for this layer
@@ -117,11 +126,11 @@ class ProbingExperiment:
 
             results[f"layer_{layer}"] = layer_results
 
-        # Analyze and save results
+        # Save results
         logger.info("Analyzing results...")
         self._save_results(results)
 
-        # Analyze results using LayerWiseAnalyzer
+        # Analyze results
         logger.info("Creating analysis and visualizations...")
         self.analyzer.analyze_experiment_results(results)
 
@@ -130,7 +139,10 @@ class ProbingExperiment:
 
     def _load_dataset(self) -> Tuple[DataLoader, DataLoader, DataLoader]:
         """Load the dataset"""
-        return create_3dr2n2_dataloaders(self.config.datasets)
+        subset_percentage = self.config.datasets.get("subset_percentage", None)
+        return create_3dr2n2_dataloaders(
+            self.config.datasets, subset_percentage=subset_percentage
+        )
 
     def _load_feature_extractor(self) -> FeatureExtractor:
         """Load and setup feature extractor"""
@@ -189,15 +201,22 @@ class ProbingExperiment:
 
         # Get probe configuration
         probe_config = self.config.probing.get(probe_type, {})
+        # Make a mutable copy for modification
+        probe_config = OmegaConf.to_container(probe_config, resolve=True)
 
         # Create probe
-        probe_config.input_dim = feature_dim
-        probe_config.output_dim = self.config.probing.get(
-            "output_dim", 2
-        )  # Default for viewpoint
-        probe_config.task_type = self.config.probing.get("task_type", "regression")
+        probe_config["input_dim"] = feature_dim
+        probe_config["output_dim"] = self.config.probing.get("output_dim", 2)
 
-        probe = create_probe(OmegaConf.to_container(probe_config))
+        main_task_type = self.config.probing.get("task_type", "regression")
+        if main_task_type == "viewpoint_regression":
+            probe_config["task_type"] = "regression"
+        elif main_task_type == "view_classification":
+            probe_config["task_type"] = "classification"
+        else:
+            probe_config["task_type"] = main_task_type
+
+        probe = create_probe(probe_config)
 
         # Setup trainer
         trainer = ProbeTrainer(probe, device=self.device)
@@ -210,7 +229,7 @@ class ProbingExperiment:
         )
 
         # Training parameters
-        epochs = training_config.get("epochs", 100)
+        epochs = training_config.get("epochs", 30)
         early_stopping_patience = training_config.get("early_stopping_patience", 15)
 
         # Metrics tracker
@@ -257,10 +276,9 @@ class ProbingExperiment:
                 logger.info(f"Early stopping at epoch {epoch}")
                 break
 
-            if epoch % 10 == 0:
-                logger.info(
-                    f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}"
-                )
+            logger.info(
+                f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}"
+            )
 
         # Load best model and evaluate on test set
         probe.load_state_dict(best_model_state)

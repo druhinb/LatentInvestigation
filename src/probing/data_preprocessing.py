@@ -52,7 +52,11 @@ class FeatureExtractorPipeline:
     def __init__(
         self,
         feature_extractor,
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        device: str = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps" if torch.backends.mps.is_available() else "cpu"
+        ),
         batch_size: int = 32,
         cache_dir: Optional[str] = None,
     ):

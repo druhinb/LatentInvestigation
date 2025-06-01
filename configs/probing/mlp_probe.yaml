@@ -30,9 +30,9 @@ training:
     patience: 10
     min_lr: 1e-6
   
-  epochs: 100
+  epochs: 30
   early_stopping_patience: 15
-  batch_size: 64
+  batch_size: 256
   
   # Loss function (will be set automatically based on task_type)
   criterion: null

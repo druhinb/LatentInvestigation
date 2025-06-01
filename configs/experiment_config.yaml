@@ -16,12 +16,12 @@ device: cuda  # or cpu
 num_workers: 4
 
 # Batch sizes
-extraction_batch_size: 32  # For feature extraction
-probing_batch_size: 64     # For probe training
+extraction_batch_size: 128  # For feature extraction
+probing_batch_size: 256    # For probe training
 
 # Probing task configuration
 probing:
-  task_type: regression  # regression for viewpoint, classification for shape
+  task_type: viewpoint_regression # regression for viewpoint, classification for shape
   output_dim: 2          # azimuth + elevation for viewpoint
   
   # Which probe types to run
@@ -48,7 +48,7 @@ probing:
         patience: 10
         min_lr: 1e-6
       
-      epochs: 100
+      epochs: 30
       early_stopping_patience: 15
       batch_size: 64
   
@@ -74,7 +74,7 @@ probing:
         patience: 10
         min_lr: 1e-6
       
-      epochs: 100
+      epochs: 30
       early_stopping_patience: 15
       batch_size: 64
 
