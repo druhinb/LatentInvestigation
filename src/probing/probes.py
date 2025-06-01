@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Optional, Union
 import logging
+from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class LinearProbe(nn.Module):
 
         # if we're classifying, the loss function handles the softmax
         if self.task_type == "classification" and output_dim > 1:
-            pass
+            raise NotImplementedError("This method is not yet implemented.")
 
         self.probe = nn.Sequential(*layers)
 
@@ -62,7 +63,7 @@ class LinearProbe(nn.Module):
 
     def _init_weights(self):
         """Initialize probe weights"""
-        for module in self.probe:
+        for module in self.modules():
             if isinstance(module, nn.Linear):
                 # Xavier/Glorot initialization for all linear layers
                 nn.init.xavier_uniform_(module.weight)
@@ -117,77 +118,19 @@ class MLPProbe(nn.Module):
             bias: Whether to use bias in linear layers
         """
         super().__init__()
-        
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.hidden_dims = hidden_dims
-        self.task_type = task_type.lower()
-        self.activation = activation.lower()
-        self.batch_hnorm = batch_norm
-        self.bias = bias
-
-        if self.task_type not in ["regression", "classification"]:
-            raise ValueError(
-                f"task_type must be 'regression' or 'classification', got {task_type}"
-            )
-        
-        if self.activation not in ["relu", "gelu", "tanh"]:
-            raise ValueError(
-                f"activation must be 'relu', 'gelu', or 'tanh', got {activation}"
-            )
-        
-        if dropout_rate < 0 or dropout_rate > 1:
-            raise ValueError(
-                f"invalid dropout rate: {dropout_rate}"
-            )
-        
-        self._build_mlp(dropout_rate, batch_norm, bias)
-
-        # Initialize weights
-        self._init_weights()
+        pass
 
     def _get_activation_function(self):
         """Get activation function from string"""
-        if self.activation == 'relu':
-            return nn.ReLU()
-        elif self.activation == 'gelu':
-            return nn.GELU()
-        elif self.activation == 'tanh':
-            return nn.Tanh()
+        pass
 
     def _build_mlp(self, dropout_rate: float, batch_norm: bool, bias: bool):
         """Build the MLP architecture"""
-        layer_dims = [self.input_dim] + self.hidden_dims + [self.output_dim]
-        layers = []
-        
-        for i in range(len(layer_dims) - 1):
-            cin = layer_dims[i]
-            cout = layer_dims[i+1]
-            
-            # Add dropout if requested
-            if dropout_rate > 0:
-                layers.append(nn.Dropout(dropout_rate))
-
-            layers.append(nn.Linear(cin, cout, bias=bias))
-            
-            # Only add BN + activation for hidden layers (is this better for probes?)
-            if i < len(layer_dims) - 2:
-                # Add batchnorm if requested
-                if batch_norm:
-                    layers.append(nn.BatchNorm1d(cout))  # should we implement a batchnorm config section that allows us to change eps, momentum, etc.
-                                
-                layers.append(self._get_activation_function())
-
-        self.mlp_probe = nn.Sequential(*layers)
+        pass
 
     def _init_weights(self):
         """Initialize MLP weights"""
-        for module in self.mlp_probe:
-            if isinstance(module, nn.Linear):
-                # Xavier/Glorot initialization for all linear layers
-                nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    nn.init.zeros_(module.bias)
+        pass
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -199,14 +142,11 @@ class MLPProbe(nn.Module):
         Returns:
             Output predictions [batch_size, output_dim]
         """
-        return self.mlp_probe(x)
+        pass
 
     def get_loss_function(self):
         """Get appropriate loss function for the task"""
-        if self.task_type == "regression":
-            return nn.MSELoss()
-        elif self.task_type == "classification":
-            return nn.CrossEntropyLoss()
+        pass
 
 
 class AttentionProbe(nn.Module):
@@ -346,7 +286,11 @@ class ProbeTrainer:
     def __init__(
         self,
         probe: nn.Module,
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+        device: str = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps" if torch.backends.mps.is_available() else "cpu"
+        ),
     ):
         """
         Initialize probe trainer
@@ -368,7 +312,7 @@ class ProbeTrainer:
         total_loss = 0.0
         num_batches = 0
 
-        for batch in dataloader:
+        for batch in tqdm(dataloader, desc="Training..."):
             features = batch["features"].to(self.device)
             targets = batch["targets"].to(self.device)
 
@@ -385,8 +329,10 @@ class ProbeTrainer:
             num_batches += 1
 
         if scheduler is not None:
-            scheduler.step()
-
+            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(total_loss / num_batches)
+            else:
+                scheduler.step()
         return total_loss / num_batches
 
     def evaluate(self, dataloader) -> dict:

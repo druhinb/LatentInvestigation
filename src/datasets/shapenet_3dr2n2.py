@@ -5,6 +5,7 @@ Dataset from: http://cvgl.stanford.edu/data2/ShapeNetRendering.tgz
 
 import os
 import json
+from tqdm import tqdm
 import numpy as np
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
@@ -44,6 +45,7 @@ class ShapeNet3DR2N2(Dataset):
         train_ratio: float = 0.7,
         val_ratio: float = 0.15,
         split_seed: int = 42,
+        subset_percentage: Optional[float] = None,  # New parameter
     ):
         self.root = Path(root)
         self.split = split
@@ -64,6 +66,19 @@ class ShapeNet3DR2N2(Dataset):
             self.model_list = [m for m in self.model_list if m.split("/")[0] in cat_ids]
 
         self.samples = self._prepare_samples()
+
+        if subset_percentage is not None:
+            if not (0 < subset_percentage <= 1.0):
+                raise ValueError("subset_percentage must be between 0.0 and 1.0")
+
+            import random
+
+            random.seed(split_seed)
+            num_samples = int(len(self.samples) * subset_percentage)
+            self.samples = random.sample(self.samples, num_samples)
+            print(
+                f"Using {subset_percentage*100:.2f}% of {split} data: {len(self.samples)} samples."
+            )
 
     def _create_split_files(
         self, train_ratio: float = 0.7, val_ratio: float = 0.15, seed: int = 42
@@ -130,7 +145,7 @@ class ShapeNet3DR2N2(Dataset):
         """Prepare all samples with viewpoint info"""
         samples = []
 
-        for model_id in self.model_list:
+        for model_id in tqdm(self.model_list):
             cat_id, obj_id = model_id.split("/")
             rendering_dir = self.root / cat_id / obj_id / "rendering"
             metadata_file = rendering_dir / "rendering_metadata.txt"
@@ -278,45 +293,69 @@ def prepare_3dr2n2_dataset(cfg: DictConfig) -> str:
 
 
 def create_3dr2n2_dataloaders(
-    cfg: DictConfig,
+    dataset_config: DictConfig,
+    batch_size: int = 64,  # Default batch_size, can be overridden by dataset_config
+    num_workers: int = 4,  # Default num_workers, can be overridden by dataset_config
+    pin_memory: bool = True,  # Default pin_memory, can be overridden by dataset_config
+    subset_percentage: Optional[float] = None,  # New parameter
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
-    """Create train/val/test dataloaders"""
+    """Create 3D-R2N2 ShapeNet dataloaders"""
 
-    # Instantiate transform from config
-    transform = instantiate(cfg.transform) if cfg.get("transform") else None
+    # Instantiate transform from config if provided
+    transform = (
+        instantiate(dataset_config.transform)
+        if dataset_config.get("transform")
+        else None
+    )
 
-    # Get dataloader config
-    dataloader_cfg = cfg.get("dataloader", {})
-    batch_size = dataloader_cfg.get("batch_size", 32)
-    num_workers = dataloader_cfg.get("num_workers", 4)
-    pin_memory = dataloader_cfg.get("pin_memory", True)
-    drop_last = dataloader_cfg.get("drop_last", True)
-
-    # Get split configuration
-    splits_cfg = cfg.get("splits", {})
-
-    loaders = {}
+    datasets = {}
     for split in ["train", "val", "test"]:
         dataset = ShapeNet3DR2N2(
-            root=cfg.root,
+            root=dataset_config.root,
             split=split,
-            categories=cfg.get("categories", None),
+            categories=dataset_config.get("categories"),
             transform=transform,
-            # Pass split configuration
-            train_ratio=splits_cfg.get("train_ratio", 0.7),
-            val_ratio=splits_cfg.get("val_ratio", 0.15),
-            split_seed=splits_cfg.get("seed", 42),
+            train_ratio=dataset_config.get("train_ratio", 0.7),
+            val_ratio=dataset_config.get("val_ratio", 0.15),
+            split_seed=dataset_config.get("split_seed", 42),
+            subset_percentage=subset_percentage,  # Pass the new parameter
         )
-        loaders[split] = DataLoader(
-            dataset,
-            batch_size=batch_size,
-            shuffle=(split == "train"),
-            num_workers=num_workers,
-            pin_memory=pin_memory,
-            drop_last=(drop_last and split == "train"),
-        )
+        datasets[split] = dataset
 
-    return loaders["train"], loaders["val"], loaders["test"]
+    # Get dataloader specific configs, falling back to function args if not present
+    dataloader_cfg = dataset_config.get("dataloader", {})
+    effective_batch_size = dataloader_cfg.get("batch_size", batch_size)
+    effective_num_workers = dataloader_cfg.get("num_workers", num_workers)
+    effective_pin_memory = dataloader_cfg.get("pin_memory", pin_memory)
+
+    train_loader = DataLoader(
+        datasets["train"],
+        batch_size=effective_batch_size,
+        shuffle=True,
+        num_workers=effective_num_workers,
+        pin_memory=effective_pin_memory,
+        drop_last=True,
+    )
+
+    val_loader = DataLoader(
+        datasets["val"],
+        batch_size=effective_batch_size,
+        shuffle=False,
+        num_workers=effective_num_workers,
+        pin_memory=effective_pin_memory,
+        drop_last=False,
+    )
+
+    test_loader = DataLoader(
+        datasets["test"],
+        batch_size=effective_batch_size,
+        shuffle=False,
+        num_workers=effective_num_workers,
+        pin_memory=effective_pin_memory,
+        drop_last=False,
+    )
+
+    return train_loader, val_loader, test_loader
 
 
 def get_dataset_from_config(cfg: DictConfig) -> ShapeNet3DR2N2:
