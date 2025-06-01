@@ -1,0 +1,48 @@
+# MLP Probe Configuration
+_target_: src.probing.probes.MLPProbe
+
+# Probe architecture
+type: mlp
+input_dim: 768  # this is set based on the model
+output_dim: 2   # For viewpoint regression (azimuth, elevation)
+hidden_dims: [256, 128]  # Hidden layer dimensions
+
+# Task configuration
+task_type: regression  # or "classification is also supported
+
+# Architecture options
+activation: gelu  # relu, gelu, tanh, sigmoid, leaky_relu
+dropout_rate: 0.3
+batch_norm: true 
+bias: true
+
+# Training configuration
+training:
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.001
+    weight_decay: 1e-4
+  
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    mode: min
+    factor: 0.5
+    patience: 10
+    min_lr: 1e-6
+  
+  epochs: 100
+  early_stopping_patience: 15
+  batch_size: 64
+  
+  # Loss function (will be set automatically based on task_type)
+  criterion: null
+
+# Evaluation
+evaluation:
+  metrics:
+    - mae
+    - rmse
+    - r2
+    
+  # For viewpoint-specific evaluation
+  viewpoint_specific: true

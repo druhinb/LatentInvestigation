@@ -9,7 +9,7 @@ python scripts/prepare_3dr2n2.py
 # Use existing tar file
 python scripts/prepare_3dr2n2.py datasets.preparation.tar_path=/path/to/ShapeNetRendering.tgz
 
-# Custom split ratios (automatic when split files missing)
+# Custom split ratios (automatic when split files are missing)
 python scripts/prepare_3dr2n2.py datasets.splits.train_ratio=0.8 datasets.splits.val_ratio=0.1
 ```
 
@@ -49,9 +49,3 @@ train_loader, val_loader, test_loader = create_3dr2n2_dataloaders(cfg)
 dataset = instantiate(cfg, split="train")
 ```
 
-## Features
-
-- **Automatic splits**: Creates train/val/test splits when missing
-- **Hydra integration**: Full configuration via YAML
-- **Flexible input**: Auto-download or use existing tar files
-- **Transform pipeline**: Configurable via Hydra `_target_`
