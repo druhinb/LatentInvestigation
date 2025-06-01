@@ -1,4 +1,3 @@
-
 # ShapeNet 3D-R2N2 Dataset Configuration
 _target_: src.datasets.shapenet_3dr2n2.ShapeNet3DR2N2
 
@@ -41,3 +40,4 @@ splits:
   train_ratio: 0.7
   val_ratio: 0.15
   seed: 42
+subset_percentage: 0.05

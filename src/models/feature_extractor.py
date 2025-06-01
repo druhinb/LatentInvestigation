@@ -379,6 +379,13 @@ def load_feature_extractor(config: Dict) -> FeatureExtractor:
     return FeatureExtractor(
         model_name=config.get("model_name"),
         checkpoint_path=config.get("checkpoint_path"),
-        device=config.get("device", "cuda" if torch.cuda.is_available() else "cpu"),
+        device=config.get(
+            "device",
+            (
+                "cuda"
+                if torch.cuda.is_available()
+                else "mps" if torch.backends.mps.is_available() else "cpu"
+            ),
+        ),
         cache_dir=config.get("cache_dir"),
     )
