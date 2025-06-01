@@ -1,0 +1,27 @@
+# Model Configuration for DINOv2
+_target_: src.models.feature_extractor.FeatureExtractor
+
+# Model identification
+model_name: dinov2
+checkpoint_path: null  # Path to fine-tuned checkpoint, null for pre-trained
+
+# Hardware
+device: cuda  # or cpu, or metal
+
+# Model loading
+cache_dir: null  # Directory to cache downloaded models
+
+# Feature extraction settings
+feature_extraction:
+  # Which layers to extract features from
+  layers: [2, 4, 6, 8, 10, 11]  # Multiple layers for layer-wise analysis (ViT-Base: 0-11)
+  
+  # Type of features to extract
+  feature_type: cls_token  # cls_token, patch_mean, patch_tokens, all
+  
+  # Whether to return features from all layers
+  return_all_layers: false
+
+# Model-specific settings
+model_config:
+  output_hidden_states: true
