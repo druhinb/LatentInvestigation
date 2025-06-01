@@ -108,7 +108,7 @@ class FeatureExtractorPipeline:
                     images=images, layers=layers, feature_type=feature_type
                 )
 
-                # we need to handle jusjt one layer or possibley multiple
+                # we need to handle just one layer or possibly multiple
                 if len(features_dict) == 1:
                     features = list(features_dict.values())[0]
                 else:
