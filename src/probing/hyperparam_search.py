@@ -1,12 +1,23 @@
 import optuna
 import torch
 from torch.optim import AdamW
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.utils.data import TensorDataset, DataLoader
 from probes import MLPProbe, ProbeTrainer
 from typing import Tuple
 from functools import partial
 
-def objective(trial, dataloaders: Tuple[DataLoader, DataLoader], num_epochs=30, task_type="regression"):
+def objective(
+    trial, 
+    dataloaders: Tuple[DataLoader, DataLoader],
+    num_epochs=30, 
+    early_stopping_patience=15,
+    use_scheduler=False,
+    task_type="regression", 
+    probe_type: str = None, 
+    layer: int = None,
+    wandb_enabled: bool = False
+) -> float:
     sample = dataloaders[0].dataset[0]
     input_dim = sample['features'].shape[1]
     output_dim = sample['targets'].shape[1] if len(sample['targets'].shape) > 1 else 1
@@ -23,32 +34,36 @@ def objective(trial, dataloaders: Tuple[DataLoader, DataLoader], num_epochs=30, 
     lr = trial.suggest_float("learning_rate", 1e-6, 1e-3, log=True)
     optimizer = AdamW(model.parameters(), lr=lr)
     
-    best_val_loss = 0
+    scheduler = None
     
-    # TODO: train function goes here
+    if use_scheduler:
+        t_max = trial.suggest_int("t_max", 10, num_epochs)
+        scheduler = CosineAnnealingLR(optimizer, t_max=t_max)
     
-    # trainer = ProbeTrainer(model)
-    # early_stopping_patience = 15
-    # best_val_loss = float("inf")
-    # patience_counter = 0
-    
-    # for i in range(num_epochs):
-    #     trainer.train_epoch(dataloaders[0], optimizer)
-    #     val_metrics = trainer.evaluate(dataloaders[1])
-    #     val_loss = val_metrics["loss"]
-    
-    #     # Early stopping
-    #     if val_loss < best_val_loss:
-    #         best_val_loss = val_loss
-    #         patience_counter = 0
-    #     else:
-    #         patience_counter += 1
-    #     if patience_counter >= early_stopping_patience:
-    #         break
+    trainer = ProbeTrainer(model)
+    _, best_val_loss = trainer.train(
+        num_epochs, 
+        optimizer, 
+        scheduler, 
+        early_stopping_patience, 
+        dataloaders[0], 
+        dataloaders[1], 
+        probe_type, 
+        layer, 
+        wandb_enabled)
         
     return best_val_loss
     
-def hyperparam_search_mlp_probe(dataloaders: Tuple[DataLoader, DataLoader], n_trials=50, num_epochs=30, task_type="regression"):
+def hyperparam_search_mlp_probe(
+    dataloaders: Tuple[DataLoader, DataLoader], 
+    n_trials=50, 
+    num_epochs=30,
+    early_stopping_patience=15,
+    use_scheduler=False,
+    task_type="regression",
+    probe_type: str = None, 
+    layer: int = None,
+    wandb_enabled: bool = False):
     """
     Runs a hyperparameter search for an MLP probe
 
@@ -62,6 +77,17 @@ def hyperparam_search_mlp_probe(dataloaders: Tuple[DataLoader, DataLoader], n_tr
         The hyperparameters of the best model
     """
     study = optuna.create_study(direction="minimize")
-    study.optimize(partial(objective, dataloaders=dataloaders, task_type=task_type), n_trials=n_trials)
+    study.optimize(
+        partial(
+            objective, 
+            dataloaders=dataloaders,
+            num_epochs=num_epochs, 
+            early_stopping_patience=early_stopping_patience,
+            use_scheduler=use_scheduler,
+            task_type=task_type,
+            probe_type=probe_type,
+            layer=layer,
+            wandb_enabled=wandb_enabled), 
+        n_trials=n_trials)
     
     return study.best_trial.params
