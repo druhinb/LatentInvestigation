@@ -1,8 +1,7 @@
 import optuna
-import torch
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import DataLoader
 from probes import MLPProbe, ProbeTrainer
 from typing import Tuple
 from functools import partial
@@ -70,8 +69,7 @@ def hyperparam_search_mlp_probe(
     Args:
         dataloaders (Tuple[DataLoader, DataLoader]): dataloaders[0] is the training set, dataloaders[1] is the validation set
         n_trials (int, optional) Number of hyperparameter search trials. Defaults to 50.
-        num_epochs(int, optional) Number of epochs to train each model. Defaults to 30.
-        task_type (str, optional) Defaults to "regression".
+        Refer to ProbeTrainer.train for remaining args
 
     Returns:
         The hyperparameters of the best model
