@@ -5,9 +5,14 @@ Probe implementations for linear and MLP-based probes as well as attention probe
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 import logging
 from tqdm import tqdm
+import wandb
+
+from src.probing.metrics import (
+    MetricsTracker,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +123,7 @@ class MLPProbe(nn.Module):
             bias: Whether to use bias in linear layers
         """
         super().__init__()
-        
+
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.hidden_dims = hidden_dims
@@ -131,17 +136,15 @@ class MLPProbe(nn.Module):
             raise ValueError(
                 f"task_type must be 'regression' or 'classification', got {task_type}"
             )
-        
+
         if self.activation not in ["relu", "gelu", "tanh"]:
             raise ValueError(
                 f"activation must be 'relu', 'gelu', or 'tanh', got {activation}"
             )
-        
+
         if dropout_rate < 0 or dropout_rate > 1:
-            raise ValueError(
-                f"invalid dropout rate: {dropout_rate}"
-            )
-        
+            raise ValueError(f"invalid dropout rate: {dropout_rate}")
+
         self._build_mlp(dropout_rate, batch_norm, bias)
 
         # Initialize weights
@@ -149,34 +152,36 @@ class MLPProbe(nn.Module):
 
     def _get_activation_function(self):
         """Get activation function from string"""
-        if self.activation == 'relu':
+        if self.activation == "relu":
             return nn.ReLU()
-        elif self.activation == 'gelu':
+        elif self.activation == "gelu":
             return nn.GELU()
-        elif self.activation == 'tanh':
+        elif self.activation == "tanh":
             return nn.Tanh()
 
     def _build_mlp(self, dropout_rate: float, batch_norm: bool, bias: bool):
         """Build the MLP architecture"""
         layer_dims = [self.input_dim] + self.hidden_dims + [self.output_dim]
         layers = []
-        
+
         for i in range(len(layer_dims) - 1):
             cin = layer_dims[i]
-            cout = layer_dims[i+1]
-            
+            cout = layer_dims[i + 1]
+
             # Add dropout if requested
             if dropout_rate > 0:
                 layers.append(nn.Dropout(dropout_rate))
 
             layers.append(nn.Linear(cin, cout, bias=bias))
-            
+
             # Only add BN + activation for hidden layers (is this better for probes?)
             if i < len(layer_dims) - 2:
                 # Add batchnorm if requested
                 if batch_norm:
-                    layers.append(nn.BatchNorm1d(cout))  # should we implement a batchnorm config section that allows us to change eps, momentum, etc.
-                                
+                    layers.append(
+                        nn.BatchNorm1d(cout)
+                    )  # should we implement a batchnorm config section that allows us to change eps, momentum, etc.
+
                 layers.append(self._get_activation_function())
 
         self.mlp_probe = nn.Sequential(*layers)
@@ -208,6 +213,7 @@ class MLPProbe(nn.Module):
             return nn.MSELoss()
         elif self.task_type == "classification":
             return nn.CrossEntropyLoss()
+
 
 class AttentionProbe(nn.Module):
     """Probe with attention mechanism over patch tokens"""
@@ -351,6 +357,7 @@ class ProbeTrainer:
             if torch.cuda.is_available()
             else "mps" if torch.backends.mps.is_available() else "cpu"
         ),
+        MetricsTracker: Optional[MetricsTracker] = None,
     ):
         """
         Initialize probe trainer
@@ -363,37 +370,99 @@ class ProbeTrainer:
         self.device = device
         self.probe.to(device)
 
+        if MetricsTracker is not None:
+            self.metrics_tracker = MetricsTracker
+
         # Set up loss function
         self.criterion = probe.get_loss_function()
 
-    def train_epoch(self, dataloader, optimizer, scheduler=None) -> float:
-        """Train probe for one epoch"""
+    def train(
+        self,
+        epochs,
+        optimizer,
+        scheduler,
+        early_stopping_patience,
+        train_dataloader,
+        val_dataloader,
+        probe_type: str = None,
+        layer: int = None,
+        wandb_enabled: bool = False,
+    ) -> Tuple[nn.Module, float]:
+        """Train the probe model"""
         self.probe.train()
-        total_loss = 0.0
-        num_batches = 0
+        best_val_loss = float("inf")
+        patience_counter = 0
+        best_model = None
 
-        for batch in tqdm(dataloader, desc="Training..."):
-            features = batch["features"].to(self.device)
-            targets = batch["targets"].to(self.device)
+        for epoch in range(epochs):
+            total_loss = 0.0
+            num_batches = 0
 
-            # Forward pass
-            optimizer.zero_grad()
-            outputs = self.probe(features)
-            loss = self.criterion(outputs, targets)
+            for batch in tqdm(train_dataloader, desc=f"Training {epoch+1}/{epochs}"):
+                # move the data to the right device
+                features = batch["features"].to(self.device)
+                targets = batch["targets"].to(self.device)
 
-            # Backward pass
-            loss.backward()
-            optimizer.step()
+                # Forward pass
+                optimizer.zero_grad()
+                outputs = self.probe(features)
+                loss = self.criterion(outputs, targets)
 
-            total_loss += loss.item()
-            num_batches += 1
+                # Backward pass
+                loss.backward()
+                optimizer.step()
 
-        if scheduler is not None:
-            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                scheduler.step(total_loss / num_batches)
+                total_loss += loss.item()
+                num_batches += 1
+
+            if scheduler is not None:
+                if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                    scheduler.step(total_loss / num_batches)
+                else:
+                    scheduler.step()
+
+            train_loss = total_loss / num_batches
+            val_metrics = self.evaluate(val_dataloader)
+            val_loss = val_metrics["loss"]
+
+            print(
+                f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}"
+            )
+
+            if self.metrics_tracker:
+                self.metrics_tracker.update("train", {"loss": train_loss}, epoch)
+                self.metrics_tracker.update("val", val_metrics, epoch)
+
+            # WandB logging
+            if wandb_enabled and probe_type is not None and layer is not None:
+                try:
+                    if wandb.run:
+                        wandb.log(
+                            {
+                                f"{probe_type}/layer{layer}/train_loss": train_loss,
+                                f"{probe_type}/layer{layer}/val_loss": val_loss,
+                                f"{probe_type}/layer{layer}/val_mae": val_metrics.get(
+                                    "mae", 0
+                                ),
+                                f"{probe_type}/layer{layer}/val_r2": val_metrics.get(
+                                    "r2", 0
+                                ),
+                                "epoch": epoch,
+                            }
+                        )
+                except ImportError:
+                    logger.warning("wandb not installed, skipping logging")
+
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                patience_counter = 0
+                best_model = self.probe.state_dict().copy()
             else:
-                scheduler.step()
-        return total_loss / num_batches
+                patience_counter += 1
+                if patience_counter >= early_stopping_patience:
+                    break
+
+        return best_model, best_val_loss
 
     def evaluate(self, dataloader) -> dict:
         """Evaluate probe on dataset"""
@@ -423,12 +492,27 @@ class ProbeTrainer:
         if self.probe.task_type == "regression":
             # Mean Absolute Error
             mae = torch.mean(torch.abs(predictions - targets)).item()
-            # R-squared
-            ss_res = torch.sum((targets - predictions) ** 2)
-            ss_tot = torch.sum((targets - torch.mean(targets)) ** 2)
-            r2 = 1 - (ss_res / ss_tot)
 
-            metrics.update({"mae": mae, "r2": r2.item()})
+            # Root Mean Square Error
+            rmse = torch.sqrt(torch.mean((predictions - targets) ** 2)).item()
+
+            if targets.dim() == 1:
+                # 1D case
+                ss_res = torch.sum((targets - predictions) ** 2)
+                ss_tot = torch.sum((targets - torch.mean(targets)) ** 2)
+                r2 = 1 - (ss_res / ss_tot)
+            else:
+                # Multidimensional case: compute R² for each dimension and average
+                target_mean = torch.mean(targets, dim=0, keepdim=True)
+                ss_res = torch.sum((targets - predictions) ** 2, dim=0)
+                ss_tot = torch.sum((targets - target_mean) ** 2, dim=0)
+
+                # Avoid division by zero
+                ss_tot = torch.clamp(ss_tot, min=1e-10)
+                r2_per_dim = 1 - (ss_res / ss_tot)
+                r2 = torch.mean(r2_per_dim)
+
+            metrics.update({"mae": mae, "rmse": rmse, "r2": r2.item()})
 
         elif self.probe.task_type == "classification":
             # Accuracy

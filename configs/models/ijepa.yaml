@@ -6,7 +6,7 @@ model_name: ijepa
 checkpoint_path: null  # Path to fine-tuned checkpoint, null for pre-trained
 
 # Hardware
-device: cuda  # or cpu, or metal
+device: mps # or cpu, or metal
 
 # Model loading
 cache_dir: null  # Directory to cache downloaded models

@@ -1,6 +1,6 @@
 # Main experiment configuration for Phase 1 probing
 defaults:
-  - models: dinov2  # or ijepa, mocov3, supervised_vit
+  - models: dinov2 # or ijepa, mocov3, supervised_vit
   - datasets: shapenet_3dr2n2
   - probing: linear_probe
   - _self_
@@ -12,7 +12,7 @@ experiment:
   version: 1
 
 # Hardware settings
-device: cuda  # or cpu
+device: mps # or cpu
 num_workers: 4
 
 # Batch sizes
@@ -74,7 +74,7 @@ probing:
         patience: 10
         min_lr: 1e-6
       
-      epochs: 30
+      epochs: 40
       early_stopping_patience: 15
       batch_size: 64
 

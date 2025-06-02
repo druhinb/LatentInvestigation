@@ -478,12 +478,6 @@ class LayerWiseAnalyzer:
         logger.info(f"Analysis report saved to {output_file}")
         return output_file
 
-        with open(output_file, "w") as f:
-            json.dump(report, f, indent=2)
-
-        logger.info(f"Analysis report saved to {output_file}")
-        return output_file
-
 
 def analyze_experiment_results(
     results_file: Path, output_dir: Optional[Path] = None
@@ -510,7 +504,9 @@ def analyze_experiment_results(
     plot_files = analyzer.create_plots(layer_results, output_dir)
     analysis["plot_files"] = [str(p) for p in plot_files]
 
-    report_file = analyzer.save_analysis_report(layer_results, output_dir)
+    report_file = analyzer.save_analysis_report(
+        layer_results, output_dir / "layer_analysis_report.json"
+    )
     analysis["report_file"] = str(report_file)
 
     return analysis

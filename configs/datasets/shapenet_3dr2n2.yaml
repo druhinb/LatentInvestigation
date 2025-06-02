@@ -2,7 +2,7 @@
 _target_: src.datasets.shapenet_3dr2n2.ShapeNet3DR2N2
 
 name: shapenet_3dr2n2
-root: ${oc.env:DATA_DIR,./data}/ShapeNetRendering
+root: ${oc.env:DATA_DIR,../data}/ShapeNetRendering
 categories: null  # null for all categories, or list like [airplane, car, chair, table]
 
 # Dataset preparation options

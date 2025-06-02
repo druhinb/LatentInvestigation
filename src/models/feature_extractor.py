@@ -10,7 +10,13 @@ import torch
 import torch.nn as nn
 import numpy as np
 from typing import Dict, List, Union, Optional, Tuple
-from transformers import ViTModel, ViTImageProcessor, AutoModel, AutoImageProcessor
+from transformers import (
+    ViTModel,
+    ViTImageProcessor,
+    AutoModel,
+    AutoImageProcessor,
+    AutoProcessor,
+)
 import timm
 from pathlib import Path
 import logging
@@ -68,27 +74,13 @@ class FeatureExtractor(nn.Module):
 
         elif self.model_name == "ijepa":
             # I-JEPA model - using timm bc hf doesn't have it!!!
-            try:
-                self.model = timm.create_model(
-                    "vit_base_patch16_224.jepa_in1k",
-                    pretrained=True,
-                    num_classes=0,  # Remove classification head
-                )
-                # Create a simple processor for I-JEPA
-                from torchvision import transforms
-
-                self.processor = transforms.Compose(
-                    [
-                        transforms.Resize(256),
-                        transforms.CenterCrop(224),
-                        transforms.ToTensor(),
-                        transforms.Normalize(
-                            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                        ),
-                    ]
-                )
-            except Exception as e:
-                logger.warning(f"Could not load I-JEPA model from timm: {e}")
+            model_id = "facebook/ijepa_vith14_1k"
+            self.model = AutoModel.from_pretrained(
+                model_id, cache_dir=self.cache_dir, output_hidden_states=True
+            )
+            self.processor = AutoProcessor.from_pretrained(
+                model_id, cache_dir=self.cache_dir
+            )
 
         elif self.model_name == "mocov3":
             # MoCo v3 model
@@ -185,7 +177,6 @@ class FeatureExtractor(nn.Module):
                 hook = layer.register_forward_hook(create_hook(f"layer_{i}"))
                 self.hooks.append(hook)
         elif hasattr(self.model, "blocks"):
-            # timm models (I-JEPA, MoCo v3)
             for i, block in enumerate(self.model.blocks):
                 hook = block.register_forward_hook(create_hook(f"layer_{i}"))
                 self.hooks.append(hook)
@@ -245,6 +236,7 @@ class FeatureExtractor(nn.Module):
                         else:  # Single image
                             img = images.cpu().numpy().transpose(1, 2, 0)  # CHW -> HWC
                             img = (img * 255).astype(np.uint8)
+
                             processed = self.processor(img, return_tensors="pt")
                         pixel_values = processed.pixel_values.to(self.device)
                     else:
