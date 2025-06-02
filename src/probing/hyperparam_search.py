@@ -54,7 +54,8 @@ def objective(
     return best_val_loss
     
 def hyperparam_search_mlp_probe(
-    dataloaders: Tuple[DataLoader, DataLoader], 
+    train_dataloader: DataLoader, 
+    val_dataloader: DataLoader,
     n_trials=50, 
     num_epochs=30,
     early_stopping_patience=15,
@@ -67,7 +68,8 @@ def hyperparam_search_mlp_probe(
     Runs a hyperparameter search for an MLP probe
 
     Args:
-        dataloaders (Tuple[DataLoader, DataLoader]): dataloaders[0] is the training set, dataloaders[1] is the validation set
+        train_dataloader (Dataloader) Training set. 
+        val_dataloader (Dataloader) Validation set. 
         n_trials (int, optional) Number of hyperparameter search trials. Defaults to 50.
         Refer to ProbeTrainer.train for remaining args
 
@@ -78,7 +80,7 @@ def hyperparam_search_mlp_probe(
     study.optimize(
         partial(
             objective, 
-            dataloaders=dataloaders,
+            dataloaders=[train_dataloader, val_dataloader],
             num_epochs=num_epochs, 
             early_stopping_patience=early_stopping_patience,
             use_scheduler=use_scheduler,
