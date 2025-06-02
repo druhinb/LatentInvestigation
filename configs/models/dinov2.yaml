@@ -17,7 +17,7 @@ feature_extraction:
   layers: [2, 4, 6, 8, 10, 11]  # Multiple layers for layer-wise analysis (ViT-Base: 0-11)
   
   # Type of features to extract
-  feature_type: all # cls_token, patch_mean, patch_tokens, all
+  feature_type: cls_token # cls_token, patch_mean, patch_tokens, all
   
   # Whether to return features from all layers
   return_all_layers: true 
