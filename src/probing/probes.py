@@ -188,7 +188,7 @@ class MLPProbe(nn.Module):
 
     def _init_weights(self):
         """Initialize MLP weights"""
-        for module in self.mlp_probe:
+        for module in self.modules():
             if isinstance(module, nn.Linear):
                 # Xavier/Glorot initialization for all linear layers
                 nn.init.xavier_uniform_(module.weight)
