@@ -109,7 +109,7 @@ log_level: INFO
 
 # Wandb integration 
 wandb:
-  enabled: false 
+  enabled: true 
   project: latent-investigation
   entity: cse493g1_drn 
   tags:
