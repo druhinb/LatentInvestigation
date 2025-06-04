@@ -15,6 +15,7 @@ from PIL import Image
 import scipy.io as sio
 from omegaconf import DictConfig
 from hydra.utils import instantiate
+from torchvision import transforms
 
 
 class ShapeNet3DR2N2(Dataset):
@@ -298,6 +299,7 @@ def create_3dr2n2_dataloaders(
     num_workers: int = 4,  # Default num_workers, can be overridden by dataset_config
     pin_memory: bool = True,  # Default pin_memory, can be overridden by dataset_config
     subset_percentage: Optional[float] = None,  # New parameter
+    preprocess_transform = None, 
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create 3D-R2N2 ShapeNet dataloaders"""
 
@@ -307,6 +309,13 @@ def create_3dr2n2_dataloaders(
         if dataset_config.get("transform")
         else None
     )
+
+    # Compose preprocessing and main transforms if both are provided
+    if preprocess_transform and transform:
+        transform = transforms.Compose([preprocess_transform, transform])
+    elif preprocess_transform:
+        transform = preprocess_transform
+
 
     datasets = {}
     for split in ["train", "val", "test"]:
