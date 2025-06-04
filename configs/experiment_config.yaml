@@ -1,18 +1,18 @@
 # Main experiment configuration for Phase 1 probing
 defaults:
-  - models: dinov2 # or ijepa, mocov3, supervised_vit
+  - models: supervised_vit # or dinov2, ijepa, mocov3, supervised_vit
   - datasets: shapenet_3dr2n2
   - probing: linear_probe
   - _self_
 
 # Experiment metadata
 experiment:
-  name: phase1_dinov2_viewpoint_probing
-  description: "Probing dinov2 for viewpoint prediction"
+  name: phase1_supervisedVIT_viewpoint_probing
+  description: "Probing supervisedVIT for viewpoint prediction"
   version: 1
 
 # Hardware settings
-device: mps # or cpu
+device: cuda # or cpu
 num_workers: 4
 
 # Batch sizes
