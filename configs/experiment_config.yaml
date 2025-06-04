@@ -1,14 +1,14 @@
 # Main experiment configuration for Phase 1 probing
 defaults:
-  - models: supervised_vit # or dinov2, ijepa, mocov3, supervised_vit
-  - datasets: shapenet_3dr2n2
-  - probing: linear_probe
+  - models: dinov2 # Switched to dinov2 for voxel reconstruction
+  - datasets: shapenet_voxel_meshes # Switched to voxel dataset
+  - probing: voxel # Default to voxel probe config
   - _self_
 
 # Experiment metadata
 experiment:
-  name: phase1_supervisedVIT_viewpoint_probing
-  description: "Probing supervisedVIT for viewpoint prediction"
+  name: phase1_dinov2_voxel_reconstruction
+  description: "Probing DINOv2 for 3D voxel reconstruction"
   version: 1
 
 # Hardware settings
@@ -16,19 +16,41 @@ device: cuda # or cpu
 num_workers: 4
 
 # Batch sizes
-extraction_batch_size: 128  # For feature extraction
-probing_batch_size: 256    # For probe training
+extraction_batch_size: 64  
+probing_batch_size: 128    
 
 # Probing task configuration
 probing:
-  task_type: viewpoint_regression # regression for viewpoint, classification for shape
-  output_dim: 2          # azimuth + elevation for viewpoint
+  task_type: voxel_reconstruction 
+
   
   # Which probe types to run
   probe_types:
-    - linear
-    - mlp
+    - voxel
+    # - linear # Can add linear/mlp later if we define a flattened voxel prediction task
+    # - mlp
   
+ 
+  voxel:
+    type: voxel
+
+    training:
+      optimizer:
+        _target_: torch.optim.Adam
+        lr: 0.001
+        weight_decay: 1e-4
+      
+      scheduler:
+        _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+        mode: max 
+        factor: 0.5
+        patience: 10
+        min_lr: 1e-6
+      
+      epochs: 30
+      early_stopping_patience: 15 
+      batch_size: 64
+
   # Linear probe settings
   linear:
     type: linear
@@ -87,12 +109,12 @@ log_level: INFO
 
 # Wandb integration 
 wandb:
-  enabled: true
+  enabled: true 
   project: latent-investigation
   entity: cse493g1_drn 
   tags:
     - phase1
-    - viewpoint_probing
+    - voxel_reconstruction # Updated tag
     - ${models.model_name}
 
 # Reproducibility

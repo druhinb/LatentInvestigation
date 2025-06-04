@@ -50,7 +50,6 @@ class FeatureExtractor(nn.Module):
         self.device = device
         self.cache_dir = cache_dir
 
-        # Model and processor will be set in _load_model
         self.model = None
         self.processor = None
         self.hooks = []
@@ -75,9 +74,7 @@ class FeatureExtractor(nn.Module):
         elif self.model_name == "ijepa":
             # I-JEPA model - using timm bc hf doesn't have it!!!
             model_id = "facebook/vit_huge_patch14_224_ijepa"
-            self.model = timm.create_model(
-                model_id, pretrained=True, num_classes=0
-            )
+            self.model = timm.create_model(model_id, pretrained=True, num_classes=0)
             from torchvision import transforms
 
             self.processor = transforms.Compose(

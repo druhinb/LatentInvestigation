@@ -1,6 +1,6 @@
 # Main configuration file
 defaults:
-  - datasets: shapenet_3dr2n2
+  - datasets: shapenet_voxel_meshes
   - _self_
 
 # Global settings
@@ -9,7 +9,7 @@ seed: 42
 
 # Experiment settings
 experiment:
-  name: shapenet_baseline
+  name: shapenet_reconstruction_baseline
   version: 1
 
 # Logging

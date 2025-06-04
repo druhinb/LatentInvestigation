@@ -1,0 +1,29 @@
+
+_target_: src.probing.probes.voxel_probe.VoxelProbe
+
+type: voxel
+
+
+input_dim: 768 
+voxel_resolution: [32, 32, 32] 
+initial_volume_size: [4, 4, 4] 
+initial_channels: 256         
+upsampling_channels: [128, 64, 32] 
+
+
+training:
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.001
+    weight_decay: 1e-4
+  
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    mode: max
+    factor: 0.5
+    patience: 10
+    min_lr: 1e-6
+  
+  epochs: 30
+  early_stopping_patience: 15
+  batch_size: 64
