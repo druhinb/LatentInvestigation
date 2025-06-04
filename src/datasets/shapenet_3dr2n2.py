@@ -269,7 +269,6 @@ def prepare_3dr2n2_dataset(cfg: DictConfig) -> str:
     # Validate tar file
     try:
         with tarfile.open(tar_path, "r:gz") as tar:
-            # Quick validation - check if it's a valid tar.gz
             pass
     except Exception as e:
         raise ValueError(f"Invalid tar file {tar_path}: {e}")
@@ -294,14 +293,13 @@ def prepare_3dr2n2_dataset(cfg: DictConfig) -> str:
 
 def create_3dr2n2_dataloaders(
     dataset_config: DictConfig,
-    batch_size: int = 64,  # Default batch_size, can be overridden by dataset_config
-    num_workers: int = 4,  # Default num_workers, can be overridden by dataset_config
-    pin_memory: bool = True,  # Default pin_memory, can be overridden by dataset_config
+    batch_size: int = 64,
+    num_workers: int = 4,
+    pin_memory: bool = True,
     subset_percentage: Optional[float] = None,  # New parameter
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create 3D-R2N2 ShapeNet dataloaders"""
 
-    # Instantiate transform from config if provided
     transform = (
         instantiate(dataset_config.transform)
         if dataset_config.get("transform")
