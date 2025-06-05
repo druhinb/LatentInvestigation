@@ -1,8 +1,10 @@
 """
 Voxel-based metrics: IoU, precision, recall, F1 for 3D voxel grids.
 """
+
 import torch
 from typing import Dict
+
 
 def compute_voxel_iou(
     predictions: torch.Tensor,
@@ -21,7 +23,7 @@ def compute_voxel_iou(
         raise ValueError(
             f"Prediction shape {predictions.shape} must match target shape {targets.shape}"
         )
-    pred_binary = (torch.sigmoid(predictions) > threshold)
+    pred_binary = torch.sigmoid(predictions) > threshold
     target_binary = targets.bool()
     pred_flat = pred_binary.view(pred_binary.shape[0], -1)
     target_flat = target_binary.view(target_binary.shape[0], -1)
@@ -30,6 +32,7 @@ def compute_voxel_iou(
     union = (pred_flat | target_flat).sum(dim=1).float()
     iou = (intersection + smooth) / (union + smooth)
     return iou.mean().item()
+
 
 def compute_voxel_precision_recall_f1(
     predictions: torch.Tensor,
@@ -48,7 +51,7 @@ def compute_voxel_precision_recall_f1(
         raise ValueError(
             f"Prediction shape {predictions.shape} must match target shape {targets.shape}"
         )
-    pred_binary = (torch.sigmoid(predictions) > threshold)
+    pred_binary = torch.sigmoid(predictions) > threshold
     target_binary = targets.bool()
     pred_flat = pred_binary.view(pred_binary.shape[0], -1)
     target_flat = target_binary.view(target_binary.shape[0], -1)
@@ -67,6 +70,7 @@ def compute_voxel_precision_recall_f1(
         "voxel_f1": f1.mean().item(),
     }
 
+
 def compute_voxel_metrics(
     predictions: torch.Tensor,
     targets: torch.Tensor,
@@ -78,5 +82,10 @@ def compute_voxel_metrics(
     """
     metrics = {}
     metrics["voxel_iou"] = compute_voxel_iou(predictions, targets, threshold, smooth)
-    metrics.update(compute_voxel_precision_recall_f1(predictions, targets, threshold, smooth))
+    metrics.update(
+        compute_voxel_precision_recall_f1(predictions, targets, threshold, smooth)
+    )
+    metrics.update(
+        compute_voxel_precision_recall_f1(predictions, targets, threshold, smooth)
+    )
     return metrics

@@ -1,0 +1,54 @@
+# Main experiment configuration for Phase 1 probing
+defaults:
+  - datasets: shapenet_voxel_meshes  # Use which dataset?
+  - models: ijepa                    # Use which model?
+  - probing: voxel                   # Use which probe config?
+  - training: default                # Use default training settings
+  - evaluation: default              # Use default evaluation settings
+  - experiment: default              # Use default experiment settings
+  - _self_
+
+# Override experiment metadata
+experiment:
+  name: phase2_ijepa_voxel_reconstruction
+  description: "Probing IJEPa for 3D voxel reconstruction"
+  version: 1
+
+# Hardware settings
+device: cuda# cuda, cpu, or mps
+
+
+# Task configuration
+probing:
+  task_type: voxel_reconstruction
+  probe_types:
+    - voxel
+  training:
+    batch_size: 64
+    epochs: 30
+    early_stopping_patience: 15
+
+datasets: 
+  num_workers: 4
+  subset_percentage: 0.08
+
+# Paths
+results_dir: ./results
+cache_dir: ./cache
+
+# Global settings
+data_dir: ./data
+seed: 42
+
+# Logging
+log_level: INFO
+
+# Wandb integration 
+wandb:
+  enabled: true
+  project: latent-investigation
+  entity: cse493g1_drn 
+  tags:
+    - phase1
+    - voxel_reconstruction
+    - ${models.model_name}

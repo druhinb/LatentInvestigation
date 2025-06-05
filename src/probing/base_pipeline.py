@@ -7,13 +7,13 @@ from typing import Any, Callable, Dict, Tuple, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class BasePipeline:
     """
     Base pipeline for feature extraction or reconstruction processing.
-    Handles caching (pickle) and batching over a DataLoader.
 
-    Subclasses must implement _process_batch(batch) -> (features, targets, metadata_dict)
     """
+
     def __init__(self, cache_dir: Optional[str] = None):
         self.cache_dir = Path(cache_dir) if cache_dir else None
         if self.cache_dir:
@@ -26,13 +26,19 @@ class BasePipeline:
 
     def _load_cache(self, cache_file: Path) -> Tuple[Any, Any, Dict]:
         logger.info(f"Loading cached data from {cache_file}")
-        with open(cache_file, 'rb') as f:
+        with open(cache_file, "rb") as f:
             data = pickle.load(f)
-        return data['features'], data['targets'], data.get('metadata', {})
+        return data["features"], data["targets"], data.get("metadata", {})
 
-    def _save_cache(self, cache_file: Path, features: torch.Tensor, targets: torch.Tensor, metadata: Dict):
-        cache_data = {'features': features, 'targets': targets, 'metadata': metadata}
-        with open(cache_file, 'wb') as f:
+    def _save_cache(
+        self,
+        cache_file: Path,
+        features: torch.Tensor,
+        targets: torch.Tensor,
+        metadata: Dict,
+    ):
+        cache_data = {"features": features, "targets": targets, "metadata": metadata}
+        with open(cache_file, "wb") as f:
             pickle.dump(cache_data, f)
         logger.info(f"Saved cached data to {cache_file}")
 

@@ -6,14 +6,19 @@ import timm
 import torch
 from transformers import AutoModel, AutoImageProcessor
 
-from .preprocessors import BasePreprocessor, HFPreprocessor, TimmPreprocessor, IdentityPreprocessor
+from .preprocessors import (
+    BasePreprocessor,
+    HFPreprocessor,
+    TimmPreprocessor,
+    IdentityPreprocessor,
+)
 
 logger = logging.getLogger(__name__)
 
 # Standard model mapping for loader
 MODEL_MAPPINGS = {
     "dinov2": ("facebook/dinov2-base", "hf"),
-    "ijepa": ("facebook/vit-huge-patch14-224-ijepa", "hf"),
+    "ijepa": ("facebook/vit_huge_patch14_224_ijepa", "timm"),
     "mocov3": ("vit_base_patch16_224.mocov3_in1k", "timm"),
     "supervised_vit": ("google/vit-base-patch16-224", "hf"),
     "dinov2_vits14": ("facebook/dinov2-small", "hf"),
@@ -83,7 +88,9 @@ def load_model_and_preprocessor(
             logger.error(f"Checkpoint not found at {ckpt_path}")
         else:
             ckpt = torch.load(ckpt_path, map_location=device)
-            sd = ckpt.get("model_state_dict", ckpt.get("state_dict", ckpt.get("model", ckpt)))
+            sd = ckpt.get(
+                "model_state_dict", ckpt.get("state_dict", ckpt.get("model", ckpt))
+            )
             sd = {k.replace("module.", ""): v for k, v in sd.items()}
             missing, unexpected = model.load_state_dict(sd, strict=False)
             if missing:

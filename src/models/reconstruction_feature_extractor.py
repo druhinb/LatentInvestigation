@@ -7,6 +7,9 @@ import logging
 from .model_loader import load_model_and_preprocessor
 from .feature_collector import FeatureCollector
 from .base_feature_extractor import BaseFeatureExtractor
+from .model_loader import load_model_and_preprocessor
+from .feature_collector import FeatureCollector
+from .base_feature_extractor import BaseFeatureExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -27,17 +30,6 @@ class ReconstructionFeatureExtractor(BaseFeatureExtractor):
             device=device,
             cache_dir=cache_dir,
         )
-        # Load backbone model and its preprocessor
-        self.model, self.preprocessor = load_model_and_preprocessor(
-            self.model_name, self.ckpt_path, self.device, self.cache_dir
-        )
-        # expose processor and transform for legacy methods
-        self.processor = getattr(self.preprocessor, 'processor', None)
-        self.transform = getattr(self.preprocessor, 'transform', None)
-        self.hooks, self.feature_cache = [], {}
-
-        if not self.model_name.startswith("timm_"):
-            self._setup_hooks()
 
         self.model.to(self.device).eval()
         for param in self.model.parameters():
@@ -71,9 +63,36 @@ class ReconstructionFeatureExtractor(BaseFeatureExtractor):
                 f"Could not auto-setup hooks for {self.model_name}. Intermediate feature extraction might be limited."
             )
 
-    # inherits extract_features from BaseFeatureExtractor
-    # inherits get_feature_dim
-    # inherits __del__ from BaseFeatureExtractor
+    def extract_features_memopt(
+        self,
+        images: torch.Tensor,
+        layers: Optional[List[Union[int, str]]] = None,
+        feature_type: str = "cls_token",
+        max_batch_size: int = 64,
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Memory-optimized feature extraction stuff for the vit models
+
+        Args:
+            images: Input images [B*N_views, C, H, W] or [B, N_views, C, H, W]
+            layers: Layers to extract features from
+            feature_type: Type of features (cls_token, patch_mean, etc.)
+            max_batch_size: Maximum batch size to process at once
+        """
+        original_shape = images.shape
+
+        if images.dim() == 5:
+            B, N_views, C, H, W = images.shape
+            images = images.view(B * N_views, C, H, W)
+
+        initial_memory = self.get_memory_usage()
+
+        if images.size(0) > max_batch_size:
+            return self.extract_features(
+                images, layers, feature_type, chunk_size=max_batch_size
+            )
+        else:
+            return self.extract_features(images, layers, feature_type)
 
 
 def load_image_feature_extractor(config: Dict) -> ReconstructionFeatureExtractor:

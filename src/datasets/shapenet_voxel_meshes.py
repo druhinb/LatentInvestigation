@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
 from torch.utils.data import DataLoader
 from .base_dataset import BaseSplitDataset
+from torch.utils.data import DataLoader
+from .base_dataset import BaseSplitDataset
 from PIL import Image
 
 from omegaconf import DictConfig
@@ -53,6 +55,7 @@ class ShapeNet3DR2N2Reconstruction(BaseSplitDataset):
         normalize_cameras: bool = True,
     ):
         self.root = Path(root)
+        self.voxel_root = Path(voxel_root) if voxel_root else self.root
 
         super().__init__(
             root=root,
@@ -63,7 +66,6 @@ class ShapeNet3DR2N2Reconstruction(BaseSplitDataset):
             split_seed=split_seed,
             subset_percentage=subset_percentage,
         )
-        self.voxel_root = Path(voxel_root) if voxel_root else self.root
         self.transform = transform
         self.normalize_cameras = normalize_cameras
 
@@ -76,7 +78,11 @@ class ShapeNet3DR2N2Reconstruction(BaseSplitDataset):
                 continue
             for obj_dir in cat_dir.iterdir():
                 vox_file = self.voxel_root / cat_id / obj_dir.name / "model.binvox"
-                if obj_dir.is_dir() and (obj_dir / "rendering").exists() and vox_file.exists():
+                if (
+                    obj_dir.is_dir()
+                    and (obj_dir / "rendering").exists()
+                    and vox_file.exists()
+                ):
                     models.append(f"{cat_id}/{obj_dir.name}")
         return models
 
@@ -87,12 +93,14 @@ class ShapeNet3DR2N2Reconstruction(BaseSplitDataset):
             cat_id, obj_id = model_id.split("/")
             rendering_dir = self.root / cat_id / obj_id / "rendering"
             voxel_path = self.voxel_root / cat_id / obj_id / "model.binvox"
-            samples.append({
-                "model_id": model_id,
-                "category": self.CATEGORIES.get(cat_id, cat_id),
-                "rendering_dir": str(rendering_dir),
-                "voxel_path": str(voxel_path),
-            })
+            samples.append(
+                {
+                    "model_id": model_id,
+                    "category": self.CATEGORIES.get(cat_id, cat_id),
+                    "rendering_dir": str(rendering_dir),
+                    "voxel_path": str(voxel_path),
+                }
+            )
         return samples
 
     def _read_camera_params_from_file(
@@ -155,7 +163,7 @@ class ShapeNet3DR2N2Reconstruction(BaseSplitDataset):
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
         sample_info = self.samples[idx]
-        model_id_str = sample_info["model_id_str"]  # cat_id/obj_id
+        model_id_str = sample_info["model_id"]  # cat_id/obj_id
         cat_id, obj_id = model_id_str.split("/")
 
         # 1. load the voxel occupancy map first (32x32x32)
@@ -243,7 +251,7 @@ def prepare_3dr2n2_reconstruction_dataset(cfg: DictConfig) -> Tuple[str, str]:
     rendering_tar_path = Path(
         prep_cfg.get("rendering_tar_path", "ShapeNetRendering.tgz")
     )
-    rendering_extract_dir = Path(cfg.render_root)
+    rendering_extract_dir = Path(cfg.root)
 
     if not rendering_extract_dir.exists() or not any(rendering_extract_dir.iterdir()):
         download_and_extract(rendering_url, rendering_tar_path, rendering_extract_dir)
@@ -253,7 +261,7 @@ def prepare_3dr2n2_reconstruction_dataset(cfg: DictConfig) -> Tuple[str, str]:
         "voxel_url", "http://cvgl.stanford.edu/data2/ShapeNetVox32.tgz"
     )
     voxel_tar_path = Path(prep_cfg.get("voxel_tar_path", "ShapeNetVox32.tgz"))
-    voxel_extract_dir = Path(cfg.get("voxel_root", cfg.render_root))
+    voxel_extract_dir = Path(cfg.get("voxel_root", cfg.voxel_root))
 
     if not voxel_extract_dir.exists() or not any(voxel_extract_dir.iterdir()):
         download_and_extract(voxel_url, voxel_tar_path, voxel_extract_dir)
@@ -264,7 +272,7 @@ def prepare_3dr2n2_reconstruction_dataset(cfg: DictConfig) -> Tuple[str, str]:
 def create_3dr2n2_reconstruction_dataloaders(
     dataset_config: DictConfig,
     batch_size: int = 32,
-    num_workers: int = 4,
+    num_workers: int = 1,
     pin_memory: bool = True,
     subset_percentage: Optional[float] = None,
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
@@ -286,9 +294,9 @@ def create_3dr2n2_reconstruction_dataloaders(
             current_subset_percentage = dataset_config.splits.subset_percentage
 
         datasets = ShapeNet3DR2N2Reconstruction(
-            root=dataset_config.render_root,  # Path to ShapeNetRendering
+            root=dataset_config.root,  # Path to ShapeNetRendering
             voxel_root=dataset_config.get(
-                "voxel_root", dataset_config.render_root
+                "voxel_root", dataset_config.root
             ),  # Path to ShapeNetVox32
             split=split,
             categories=dataset_config.get("categories"),
@@ -341,8 +349,8 @@ def get_reconstruction_dataset_from_config(
     subset_percentage = cfg.get("subset_percentage", None)
 
     return ShapeNet3DR2N2Reconstruction(
-        root=cfg.render_root,
-        voxel_root=cfg.get("voxel_root", cfg.render_root),
+        root=cfg.root,
+        voxel_root=cfg.get("voxel_root", cfg.voxel_root),
         split=cfg.get("split", "train"),
         categories=cfg.get("categories", None),
         transform=transform,

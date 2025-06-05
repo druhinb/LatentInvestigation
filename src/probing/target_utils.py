@@ -1,6 +1,7 @@
 """
 Utils for preparing targets for different probing tasks.
 """
+
 import torch
 import numpy as np
 from typing import Dict, Union
@@ -26,7 +27,7 @@ def prepare_targets_for_task(
         el_bins = np.linspace(-30, 30, 4)
         a_idx = np.digitize(az, az_bins) - 1
         e_idx = np.digitize(el, el_bins) - 1
-        cls_idx = a_idx * len(el_bins-1) + e_idx
+        cls_idx = a_idx * len(el_bins - 1) + e_idx
         targets = torch.tensor(cls_idx, dtype=torch.long)
     else:
         raise ValueError(f"Unknown task type: {task_type}")

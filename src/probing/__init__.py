@@ -1,15 +1,19 @@
 """Probing module for linear and MLP probes with evaluation metrics"""
 
-from .linear_probe import LinearProbe
-from .mlp_probe import MLPProbe
-from .attention_probe import AttentionProbe
-from .probes import VoxelProbe
+from .probes import VoxelProbe, LinearProbe, MLPProbe, AttentionProbe
 from .probes import create_probe, ProbeTrainer
-
+from .metrics import MetricsTracker
 from .regression_metrics import compute_regression_metrics
 from .classification_metrics import compute_classification_metrics
-from .voxel_metrics import compute_voxel_metrics, compute_voxel_iou, compute_voxel_precision_recall_f1
-from .viewpoint_metrics import compute_viewpoint_specific_metrics, analyze_error_patterns
+from .voxel_metrics import (
+    compute_voxel_metrics,
+    compute_voxel_iou,
+    compute_voxel_precision_recall_f1,
+)
+from .viewpoint_metrics import (
+    compute_viewpoint_specific_metrics,
+    analyze_error_patterns,
+)
 from .base_metrics import to_numpy
 
 from .feature_pipeline import ProbingPipeline, ProbingDataset
@@ -31,6 +35,7 @@ __all__ = [
     "compute_viewpoint_specific_metrics",
     "analyze_error_patterns",
     "to_numpy",
+    "MetricsTracker",
     "ProbingPipeline",
     "ProbingDataset",
     "ReconstructionPipeline",

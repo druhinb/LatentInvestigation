@@ -19,7 +19,11 @@ class FeatureExtractor(BaseFeatureExtractor):
     """Extract features from ViT-based models for probing"""
 
     def __init__(
-        self, model_name: str, checkpoint_path: Optional[str] = None, device: str = None, cache_dir: Optional[str] = None
+        self,
+        model_name: str,
+        checkpoint_path: Optional[str] = None,
+        device: str = None,
+        cache_dir: Optional[str] = None,
     ):
         super().__init__(
             model_name=model_name,

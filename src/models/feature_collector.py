@@ -4,10 +4,12 @@ from typing import Any, Dict, List, Union, Optional
 
 logger = logging.getLogger(__name__)
 
+
 class FeatureCollector:
     """
     Helper to extract features from model outputs and hook cache.
     """
+
     def __init__(
         self,
         outputs: Any,
@@ -21,15 +23,19 @@ class FeatureCollector:
         self.model_name = model_name
 
     def _num_layers(self) -> int:
-        if hasattr(self.model.config, "num_hidden_layers"):
+        if hasattr(self.model, "config") and hasattr(
+            self.model.config, "num_hidden_layers"
+        ):
             return self.model.config.num_hidden_layers
-        if hasattr(self.model, "blocks"):
+        elif hasattr(self.model, "blocks"):
             return len(self.model.blocks)
+        elif hasattr(self.model, "layers"):
+            return len(self.model.layers)
+        elif hasattr(self.model, "config") and hasattr(self.model.config, "n_layer"):
+            return self.model.config.n_layer
         return 0
 
-    def _resolve_indices(
-        self, layers: Optional[List[Union[int, str]]]
-    ) -> List[int]:
+    def _resolve_indices(self, layers: Optional[List[Union[int, str]]]) -> List[int]:
         nl = self._num_layers()
         if not layers:
             return [nl]
@@ -64,13 +70,13 @@ class FeatureCollector:
             elif idx == nl:
                 if hasattr(self.outputs, "last_hidden_state"):
                     tensor = self.outputs.last_hidden_state
-                elif isinstance(self.outputs, torch.Tensor) and self.model_name.startswith("timm_"):
+                elif isinstance(
+                    self.outputs, torch.Tensor
+                ) and self.model_name.startswith("timm_"):
                     tensor = self.outputs
             if tensor is None:
                 continue
-            key_name = (
-                "embedding_out" if layer_key < 0 else f"layer_{layer_key}_out"
-            )
+            key_name = "embedding_out" if layer_key < 0 else f"layer_{layer_key}_out"
             # slice features
             if tensor.dim() == 3:
                 if feature_type == "cls_token":
@@ -93,8 +99,6 @@ class FeatureCollector:
                     candidate = getattr(self.outputs, "pooler_output", None)
             if candidate is not None:
                 key = "final_fallback"
-                results[key] = (
-                    candidate[:, 0] if candidate.dim() == 3 else candidate
-                )
+                results[key] = candidate[:, 0] if candidate.dim() == 3 else candidate
                 logger.info("Used a fallback mechanism for final feature extraction.")
         return results

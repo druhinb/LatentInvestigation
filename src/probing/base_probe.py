@@ -4,6 +4,7 @@ import torch.nn as nn
 
 class BaseProbe(nn.Module, ABC):
     """Abstract base class for all probing modules, providing common weight initialization."""
+
     def __init__(self):
         super().__init__()
 
