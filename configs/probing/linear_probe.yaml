@@ -13,33 +13,4 @@ task_type: regression  # or classification is also supported
 dropout_rate: 0.0
 bias: true
 
-# Training configuration
-training:
-  optimizer:
-    _target_: torch.optim.Adam
-    lr: 0.001
-    weight_decay: 1e-4
-  
-  scheduler:
-    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-    mode: min
-    factor: 0.5
-    patience: 10
-    min_lr: 1e-6
-  
-  epochs: 30
-  early_stopping_patience: 15
-  batch_size: 256
-  
-  # Loss function (will be set automatically based on task_type)
-  criterion: null
-
-# Evaluation
-evaluation:
-  metrics:
-    - mae
-    - rmse
-    - r2
-    
-  # For viewpoint-specific evaluation
-  viewpoint_specific: true
+# Training and evaluation are handled via the `training` and `evaluation` config groups

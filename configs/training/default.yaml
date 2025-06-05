@@ -1,0 +1,14 @@
+# Common training configuration for all probes
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 0.001
+  weight_decay: 1e-4
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  mode: min
+  factor: 0.5
+  patience: 10
+  min_lr: 1e-6
+epochs: 30
+early_stopping_patience: 15
+batch_size: 64

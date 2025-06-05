@@ -3,23 +3,21 @@ ShapeNet 3D-R2N2 Dataset Implementation
 Dataset from: http://cvgl.stanford.edu/data2/ShapeNetRendering.tgz
 """
 
-import os
-import json
 from tqdm import tqdm
 import numpy as np
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from PIL import Image
-import scipy.io as sio
 from omegaconf import DictConfig
 from hydra.utils import instantiate
 import torchvision.transforms as transforms
+from .base_dataset import BaseSplitDataset
 
 
-class ShapeNet3DR2N2(Dataset):
-    """3D-R2N2 ShapeNet rendered dataset"""
+class ShapeNet3DR2N2(BaseSplitDataset):
+    """3D-R2N2 ShapeNet rendered dataset with train/val/test split"""
 
     CATEGORIES = {
         "02691156": "airplane",
@@ -42,167 +40,65 @@ class ShapeNet3DR2N2(Dataset):
         root: str,
         split: str = "train",
         categories: Optional[List[str]] = None,
-        transform=None,
         train_ratio: float = 0.7,
         val_ratio: float = 0.15,
         split_seed: int = 42,
-        subset_percentage: Optional[float] = None,  # New parameter
+        subset_percentage: Optional[float] = None,
+        transform=None,
     ):
-        self.root = Path(root)
-        self.split = split
+        super().__init__(
+            root=root,
+            split=split,
+            categories=categories,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            split_seed=split_seed,
+            subset_percentage=subset_percentage,
+        )
         self.transform = transform
 
-        # Load or create split file
-        split_file = self.root / f"{split}.lst"
-        if not split_file.exists():
-            print(f"Split file {split_file} not found. Creating splits...")
-            self._create_split_files(train_ratio, val_ratio, split_seed)
-
-        with open(split_file, "r") as f:
-            self.model_list = [line.strip() for line in f]
-
-        # Filter categories
-        if categories:
-            cat_ids = [k for k, v in self.CATEGORIES.items() if v in categories]
-            self.model_list = [m for m in self.model_list if m.split("/")[0] in cat_ids]
-
-        self.samples = self._prepare_samples()
-
-        if subset_percentage is not None:
-            if not (0 < subset_percentage <= 1.0):
-                raise ValueError("subset_percentage must be between 0.0 and 1.0")
-
-            import random
-
-            random.seed(split_seed)
-            num_samples = int(len(self.samples) * subset_percentage)
-            self.samples = random.sample(self.samples, num_samples)
-            print(
-                f"Using {subset_percentage*100:.2f}% of {split} data: {len(self.samples)} samples."
-            )
-
-    def _create_split_files(
-        self, train_ratio: float = 0.7, val_ratio: float = 0.15, seed: int = 42
-    ):
-        """Create train/val/test split files if they don't exist
-
-        Args:
-            train_ratio: Proportion for training set (default: 0.7)
-            val_ratio: Proportion for validation set (default: 0.15)
-            seed: Random seed for reproducible splits (default: 42)
-        """
-        import random
-
-        # Find all available models
-        all_models = []
+    def _gather_all_models(self) -> List[str]:
+        """List all models with rendering directory available"""
+        models = []
         for cat_id in self.CATEGORIES.keys():
             cat_dir = self.root / cat_id
-            if cat_dir.exists():
-                for obj_dir in cat_dir.iterdir():
-                    if obj_dir.is_dir():
-                        model_id = f"{cat_id}/{obj_dir.name}"
-                        # Check if rendering directory exists
-                        if (obj_dir / "rendering").exists():
-                            all_models.append(model_id)
+            if not cat_dir.exists():
+                continue
+            for obj_dir in cat_dir.iterdir():
+                if obj_dir.is_dir() and (obj_dir / "rendering").exists():
+                    models.append(f"{cat_id}/{obj_dir.name}")
+        return models
 
-        if not all_models:
-            raise ValueError(f"No models found in {self.root}")
-
-        print(
-            f"Found {len(all_models)} models across {len(self.CATEGORIES)} categories"
-        )
-
-        # Shuffle for random splits
-        random.seed(seed)
-        random.shuffle(all_models)
-
-        # Calculate split sizes
-        n_total = len(all_models)
-        n_train = int(train_ratio * n_total)
-        n_val = int(val_ratio * n_total)
-
-        train_models = all_models[:n_train]
-        val_models = all_models[n_train : n_train + n_val]
-        test_models = all_models[n_train + n_val :]
-
-        # Write split files
-        splits = {"train": train_models, "val": val_models, "test": test_models}
-
-        for split_name, models in splits.items():
-            split_file = self.root / f"{split_name}.lst"
-            with open(split_file, "w") as f:
-                for model in models:
-                    f.write(f"{model}\n")
-            print(f"Created {split_file} with {len(models)} models")
-
-        print(f"\nSplit summary:")
-        print(f"  Train: {len(train_models)} models ({len(train_models)/n_total:.1%})")
-        print(f"  Val: {len(val_models)} models ({len(val_models)/n_total:.1%})")
-        print(f"  Test: {len(test_models)} models ({len(test_models)/n_total:.1%})")
-
-        return splits
-
-    def _prepare_samples(self):
-        """Prepare all samples with viewpoint info"""
+    def _prepare_samples(self) -> List[Dict[str, Any]]:
+        """Build sample list for each view of each model in the split"""
         samples = []
-
-        for model_id in tqdm(self.model_list):
+        for model_id in self.model_list:
             cat_id, obj_id = model_id.split("/")
             rendering_dir = self.root / cat_id / obj_id / "rendering"
             metadata_file = rendering_dir / "rendering_metadata.txt"
-
-            # Read camera parameters
-            if metadata_file.exists():
-                camera_params = self._read_camera_params(metadata_file)
-            else:
-                # Use default parameters if metadata missing
-                camera_params = self._get_default_params()
-
-            # Each object has 24 rendered views
-            for i in range(24):
+            camera_params = (
+                self._read_camera_params(metadata_file)
+                if metadata_file.exists()
+                else self._get_default_params()
+            )
+            for i in range(len(camera_params)):
                 img_path = rendering_dir / f"{i:02d}.png"
                 if img_path.exists():
+                    az, el = camera_params[i]["azimuth"], camera_params[i]["elevation"]
                     samples.append(
                         {
                             "img_path": str(img_path),
                             "category": self.CATEGORIES.get(cat_id, cat_id),
                             "model_id": model_id,
                             "view_idx": i,
-                            "azimuth": camera_params[i]["azimuth"],
-                            "elevation": camera_params[i]["elevation"],
+                            "azimuth": az,
+                            "elevation": el,
                         }
                     )
-
         return samples
 
-    def _read_camera_params(self, metadata_file):
-        """Read camera parameters from metadata"""
-        params = []
-        with open(metadata_file, "r") as f:
-            for i, line in enumerate(f):
-                if i >= 24:  # Only 24 views
-                    break
-                parts = line.strip().split()
-                # Format: azimuth elevation tilt distance
-                params.append(
-                    {"azimuth": float(parts[0]), "elevation": float(parts[1])}
-                )
-        return params
-
-    def _get_default_params(self):
-        """Default camera parameters (24 views around object)"""
-        params = []
-        for i in range(24):
-            azimuth = i * 15.0  # 0, 15, 30, ..., 345
-            elevation = 30.0 if i % 2 == 0 else -30.0  # Alternate elevations
-            params.append({"azimuth": azimuth, "elevation": elevation})
-        return params
-
-    def __len__(self):
-        return len(self.samples)
-
-    def __getitem__(self, idx):
-        sample = self.samples[idx]
+    def __getitem__(self, idx):  # no change
+        sample = super().__getitem__(idx)
 
         # Load image
         img = Image.open(sample["img_path"]).convert("RGB")
@@ -298,7 +194,7 @@ def create_3dr2n2_dataloaders(
     num_workers: int = 4,
     pin_memory: bool = True,
     subset_percentage: Optional[float] = None,  # New parameter
-    post_transform = None, # transform should input PIL and output Tensor
+    post_transform=None,  # transform should input PIL and output Tensor
 ) -> Tuple[DataLoader, DataLoader, DataLoader]:
     """Create 3D-R2N2 ShapeNet dataloaders"""
 
@@ -310,11 +206,13 @@ def create_3dr2n2_dataloaders(
 
     # Compose preprocessing and main transforms if both are provided
     if post_transform and transform:
-        transform = transforms.Compose([
-            transform,                   # PIL → Tensor
-            transforms.ToPILImage(),     # Need to compose back
-            post_transform               # PIL → Tensor
-        ])
+        transform = transforms.Compose(
+            [
+                transform,  # PIL → Tensor
+                transforms.ToPILImage(),  # Need to compose back
+                post_transform,  # PIL → Tensor
+            ]
+        )
     elif post_transform:
         transform = post_transform
 
