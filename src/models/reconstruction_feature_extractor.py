@@ -85,18 +85,9 @@ class ReconstructionFeatureExtractor(nn.Module):
                 timm_model_name, pretrained=True, num_classes=0, features_only=False
             )
             data_cfg = timm.data.resolve_model_data_config(self.model)
-            #self.transform = timm.data.create_transform(**data_cfg, is_training=False)
+            self.transform = timm.data.create_transform(**data_cfg, is_training=False)
             from torchvision import transforms
-            self.processor = transforms.Compose(
-                [
-                    transforms.Resize(256),
-                    transforms.CenterCrop(224),
-                    # transforms.ToTensor(), -- requires PIL
-                    transforms.Normalize(
-                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                    ),
-                ]
-            )
+
             logger.info(
                 f"Loaded timm model: {timm_model_name} with its default transform."
             )
@@ -178,9 +169,14 @@ class ReconstructionFeatureExtractor(nn.Module):
                 )
                 model_outputs = self.model(**inputs)
             elif self.transform:
-                processed_images = torch.stack(
-                    [self.transform(img) for img in images_on_device]
-                ).to(self.device)
+                # Apply transform only to PIL Images or ndarrays, skip for tensors
+                processed_list = []
+                for img in images_on_device:
+                    if isinstance(img, torch.Tensor):
+                        processed_list.append(img)
+                    else:
+                        processed_list.append(self.transform(img))
+                processed_images = torch.stack(processed_list).to(self.device)
                 model_outputs = self.model(processed_images)
             else:
                 model_outputs = self.model(images_on_device)
