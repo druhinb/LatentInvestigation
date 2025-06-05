@@ -7,6 +7,7 @@ from pathlib import Path
 import logging
 import json
 from dataclasses import dataclass
+from sklearn.metrics.pairwise import rbf_kernel
 
 logger = logging.getLogger(__name__)
 
@@ -510,3 +511,32 @@ def analyze_experiment_results(
     analysis["report_file"] = str(report_file)
 
     return analysis
+
+def center_gram(K):
+    n = K.shape[0]
+    identity = torch.eye(n, device=K.device)
+    ones = torch.ones((n, n), device=K.device) / n
+    H = identity - ones
+    return H @ K @ H
+
+def get_cka_matrix(layer_features: List[torch.Tensor]):    
+    n = len(layer_features)
+    cka_matrix = torch.zeros((n, n), device=layer_features[0].device)
+    
+    centered_rbf_kernels = []
+    for i in range(n):
+        centered_rbf_kernels.append(center_gram(rbf_kernel(layer_features[i])))
+    
+    for i in range(n):
+        for j in range(i + 1):
+            K_X_centered = centered_rbf_kernels[i]
+            K_Y_centered = centered_rbf_kernels[j]
+            
+            numerator = (K_X_centered * K_Y_centered).sum()
+            denominator = torch.sqrt((K_X_centered * K_X_centered).sum() * (K_Y_centered * K_Y_centered).sum())
+            
+            cka = numerator / denominator
+            cka_matrix[i, j] = cka
+            cka_matrix[j, i] = cka
+    
+    return cka_matrix
