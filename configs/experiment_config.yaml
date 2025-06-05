@@ -1,14 +1,14 @@
 # Main experiment configuration for Phase 1 probing
 defaults:
-  - models: dinov2 # Switched to dinov2 for voxel reconstruction
+  - models: ijepa # Switched to ijepa for voxel reconstruction
   - datasets: shapenet_voxel_meshes # Switched to voxel dataset
   - probing: voxel # Default to voxel probe config
   - _self_
 
 # Experiment metadata
 experiment:
-  name: phase1_dinov2_voxel_reconstruction
-  description: "Probing DINOv2 for 3D voxel reconstruction"
+  name: phase1_ijepa_voxel_reconstruction
+  description: "Probing IJEPA for 3D voxel reconstruction"
   version: 1
 
 # Hardware settings

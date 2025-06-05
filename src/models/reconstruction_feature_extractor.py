@@ -54,7 +54,7 @@ class ReconstructionFeatureExtractor(nn.Module):
         if self.model_name == "dinov2":
             hf_model_id = "facebook/dinov2-base"
         elif self.model_name == "ijepa":
-            hf_model_id = "facebook/vit-huge-patch14-224-ijepa"
+            timm_model_name = "facebook/vit_huge_patch14_224_ijepa"
         elif self.model_name == "mocov3":
             timm_model_name = "vit_base_patch16_224.mocov3_in1k"
         elif self.model_name == "supervised_vit":
@@ -85,7 +85,18 @@ class ReconstructionFeatureExtractor(nn.Module):
                 timm_model_name, pretrained=True, num_classes=0, features_only=False
             )
             data_cfg = timm.data.resolve_model_data_config(self.model)
-            self.transform = timm.data.create_transform(**data_cfg, is_training=False)
+            #self.transform = timm.data.create_transform(**data_cfg, is_training=False)
+            from torchvision import transforms
+            self.processor = transforms.Compose(
+                [
+                    transforms.Resize(256),
+                    transforms.CenterCrop(224),
+                    # transforms.ToTensor(), -- requires PIL
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),
+                ]
+            )
             logger.info(
                 f"Loaded timm model: {timm_model_name} with its default transform."
             )

@@ -22,7 +22,7 @@ transform:
       size: 256
     - _target_: torchvision.transforms.CenterCrop
       size: 224
-    - _target_: torchvision.transforms.ToTensor
+    # - _target_: torchvision.transforms.ToTensor
 
 # DataLoader configuration
 dataloader:
@@ -39,4 +39,4 @@ splits:
   train_ratio: 0.7
   val_ratio: 0.15
   seed: 42 
-  subset_percentage: 0.005 
+  subset_percentage: 0.08 
