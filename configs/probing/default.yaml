@@ -1,0 +1,4 @@
+# Default probing configuration: selects linear probe
+# This file acts as the default for the probing config group
+defaults:
+  - linear_probe

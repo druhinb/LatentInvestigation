@@ -1,8 +1,8 @@
 # ShapeNet 3D-R2N2 Dataset Configuration
-_target_: src.datasets.shapenet_voxel_meshes.ShapeNetVoxelMeshes
+_target_: src.datasets.shapenet_voxel_meshes.ShapeNet3DR2N2Reconstruction
 
 name: shapenet_voxel_meshes
-render_root: ${oc.env:DATA_DIR,../data}/ShapeNetRendering
+root: ${oc.env:DATA_DIR,../data}/ShapeNetRendering
 voxel_root: ${oc.env:DATA_DIR,../data}/ShapeNetVox32
 categories: null  
 
@@ -35,8 +35,8 @@ splits:
   train: train
   val: val
   test: test
-
-  train_ratio: 0.7
-  val_ratio: 0.15
-  seed: 42 
-  subset_percentage: 0.08
+# Split generation parameters
+train_ratio: 0.7
+val_ratio: 0.15
+split_seed: 42 
+subset_percentage: 0.08

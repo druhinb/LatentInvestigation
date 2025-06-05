@@ -7,7 +7,8 @@ import torch
 import urllib
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
+from .base_dataset import BaseSplitDataset
 from PIL import Image
 
 from omegaconf import DictConfig
@@ -15,7 +16,7 @@ from hydra.utils import instantiate
 from src.utils.binvox_utils import read_as_3d_array
 
 
-class ShapeNet3DR2N2Reconstruction(Dataset):
+class ShapeNet3DR2N2Reconstruction(BaseSplitDataset):
     """
     3D-R2N2 ShapeNet dataset for 3D reconstruction from multiple views.
     We load 24 views, their camera parameters, and a ground truth voxel model.
@@ -44,122 +45,55 @@ class ShapeNet3DR2N2Reconstruction(Dataset):
         voxel_root: Optional[str] = None,
         split: str = "train",
         categories: Optional[List[str]] = None,
-        transform=None,
         train_ratio: float = 0.7,
         val_ratio: float = 0.15,
         split_seed: int = 42,
         subset_percentage: Optional[float] = None,
+        transform=None,
         normalize_cameras: bool = True,
     ):
         self.root = Path(root)
 
-        # if voxel_root isn't provided, assume the stuff is in the same folder
+        super().__init__(
+            root=root,
+            split=split,
+            categories=categories,
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            split_seed=split_seed,
+            subset_percentage=subset_percentage,
+        )
         self.voxel_root = Path(voxel_root) if voxel_root else self.root
-        self.split = split
         self.transform = transform
         self.normalize_cameras = normalize_cameras
 
-        # create dataset splits
-        split_file = self.root / f"{split}.lst"
-        if not split_file.exists():
-            print(
-                f"Split file {split_file} not found. Creating splits based on models in {self.root}..."
-            )
-            self._create_split_files(train_ratio, val_ratio, split_seed)
-
-        with open(split_file, "r") as f:
-            # each line contains cat_id/obj_id
-            self.model_id_list = [line.strip() for line in f]
-
-        # only keep the categories that were reqeested
-        if categories:
-            cat_ids_to_keep = [k for k, v in self.CATEGORIES.items() if v in categories]
-            self.model_id_list = [
-                m for m in self.model_id_list if m.split("/")[0] in cat_ids_to_keep
-            ]
-
-        self.samples = self._prepare_samples()
-
-        # return a randomized subset of the data if requested
-        if subset_percentage is not None:
-            if not (0 < subset_percentage <= 1.0):
-                raise ValueError("subset_percentage must be between 0.0 and 1.0")
-            import random
-
-            random.seed(split_seed)
-            num_samples = int(len(self.samples) * subset_percentage)
-            self.samples = random.sample(self.samples, num_samples)
-            print(
-                f"Using {subset_percentage*100:.2f}% of {split} data: {len(self.samples)} samples."
-            )
-
-    def _create_split_files(
-        self, train_ratio: float = 0.7, val_ratio: float = 0.15, seed: int = 42
-    ):
-        """Create train/val/test split files if they don't exist"""
-        import random
-
-        all_models = []
+    def _gather_all_models(self) -> List[str]:
+        """List all models with both rendering and voxel data"""
+        models = []
         for cat_id in self.CATEGORIES.keys():
             cat_dir = self.root / cat_id
-            if cat_dir.exists():
-                for obj_dir in cat_dir.iterdir():
-                    if obj_dir.is_dir():
-                        all_models.append(f"{cat_id}/{obj_dir.name}")
+            if not cat_dir.exists():
+                continue
+            for obj_dir in cat_dir.iterdir():
+                vox_file = self.voxel_root / cat_id / obj_dir.name / "model.binvox"
+                if obj_dir.is_dir() and (obj_dir / "rendering").exists() and vox_file.exists():
+                    models.append(f"{cat_id}/{obj_dir.name}")
+        return models
 
-        if not all_models:
-            raise ValueError(
-                f"No models with renderings and voxels found in {self.root} (and {self.voxel_root})"
-            )
-
-        print(
-            f"Found {len(all_models)} models across {len(self.CATEGORIES)} categories."
-        )
-
-        random.seed(seed)
-        random.shuffle(all_models)
-
-        n_total = len(all_models)
-        n_train = int(train_ratio * n_total)
-        n_val = int(val_ratio * n_total)
-
-        train_models = all_models[:n_train]
-        val_models = all_models[n_train : n_train + n_val]
-        test_models = all_models[n_train + n_val :]
-
-        splits = {"train": train_models, "val": val_models, "test": test_models}
-        for split_name, models in splits.items():
-            split_file = self.root / f"{split_name}.lst"
-            with open(split_file, "w") as f:
-                for model in models:
-                    f.write(f"{model}\n")
-            print(f"Created {split_file} with {len(models)} models")
-
-    def _prepare_samples(self):
-        """
-        Prepare samples. We also verify that the voxel data exists for each model_id.
-        """
-        prepared_samples = []
-        print("Preparing samples...")
-
-        for model_id_str in tqdm(self.model_id_list):
-            cat_id, obj_id = model_id_str.split("/")
-            voxel_path = self.voxel_root / cat_id / obj_id / "model.binvox"
+    def _prepare_samples(self) -> List[Dict[str, Any]]:
+        """Build sample list for each model in the split"""
+        samples = []
+        for model_id in self.model_list:
+            cat_id, obj_id = model_id.split("/")
             rendering_dir = self.root / cat_id / obj_id / "rendering"
-
-            if voxel_path.exists() and rendering_dir.exists():
-                if not (rendering_dir / "00.png").exists():
-                    continue
-                prepared_samples.append(
-                    {
-                        "model_id_str": model_id_str,
-                        "category": self.CATEGORIES.get(cat_id, cat_id),
-                        "voxel_path": str(voxel_path),
-                        "rendering_dir": str(rendering_dir),
-                    }
-                )
-        print(f"Prepared {len(prepared_samples)} valid samples for split {self.split}.")
-        return prepared_samples
+            voxel_path = self.voxel_root / cat_id / obj_id / "model.binvox"
+            samples.append({
+                "model_id": model_id,
+                "category": self.CATEGORIES.get(cat_id, cat_id),
+                "rendering_dir": str(rendering_dir),
+                "voxel_path": str(voxel_path),
+            })
+        return samples
 
     def _read_camera_params_from_file(
         self, metadata_file: Path

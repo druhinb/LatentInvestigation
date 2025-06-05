@@ -1,0 +1,4 @@
+# Default dataset configuration
+# Selects the default ShapeNet dataset implementation
+defaults:
+  - shapenet_voxel_meshes

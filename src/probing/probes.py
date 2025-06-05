@@ -11,6 +11,7 @@ from tqdm import tqdm
 import wandb
 from torch.utils.data import DataLoader
 
+from .base_probe import BaseProbe
 from src.probing.metrics import (
     MetricsTracker,
 )
@@ -18,7 +19,7 @@ from src.probing.metrics import (
 logger = logging.getLogger(__name__)
 
 
-class LinearProbe(nn.Module):
+class LinearProbe(BaseProbe):
     """Simple linear probe for regression or classification tasks"""
 
     def __init__(
@@ -64,18 +65,6 @@ class LinearProbe(nn.Module):
 
         self.probe = nn.Sequential(*layers)
 
-        # Initialize weights
-        self._init_weights()
-
-    def _init_weights(self):
-        """Initialize probe weights"""
-        for module in self.modules():
-            if isinstance(module, nn.Linear):
-                # Xavier/Glorot initialization for all linear layers
-                nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    nn.init.zeros_(module.bias)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass
@@ -104,7 +93,7 @@ class LinearProbe(nn.Module):
             return nn.MSELoss()
 
 
-class MLPProbe(nn.Module):
+class MLPProbe(BaseProbe):
     """Multi-layer perceptron probe for more complex feature relationships"""
 
     def __init__(
@@ -156,9 +145,6 @@ class MLPProbe(nn.Module):
 
         self._build_mlp(dropout_rate, batch_norm, bias)
 
-        # Initialize weights
-        self._init_weights()
-
     def _get_activation_function(self):
         """Get activation function from string"""
         if self.activation == "relu":
@@ -195,15 +181,6 @@ class MLPProbe(nn.Module):
 
         self.mlp_probe = nn.Sequential(*layers)
 
-    def _init_weights(self):
-        """Initialize MLP weights"""
-        for module in self.modules():
-            if isinstance(module, nn.Linear):
-                # Xavier/Glorot initialization for all linear layers
-                nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    nn.init.zeros_(module.bias)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass
@@ -224,7 +201,7 @@ class MLPProbe(nn.Module):
             return nn.CrossEntropyLoss()
 
 
-class AttentionProbe(nn.Module):
+class AttentionProbe(BaseProbe):
     """Probe with attention mechanism over patch tokens"""
 
     def __init__(
@@ -268,16 +245,6 @@ class AttentionProbe(nn.Module):
 
         self.classifier = nn.Sequential(*layers)
 
-        self._init_weights()
-
-    def _init_weights(self):
-        """Initialize weights"""
-        for module in self.modules():
-            if isinstance(module, nn.Linear):
-                nn.init.xavier_uniform_(module.weight)
-                if module.bias is not None:
-                    nn.init.zeros_(module.bias)
-
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass with attention over patch tokens
@@ -309,7 +276,7 @@ class AttentionProbe(nn.Module):
             return nn.CrossEntropyLoss()
 
 
-class VoxelProbe(nn.Module):
+class VoxelProbe(BaseProbe):
     """
     A probe that takes 2D features and outputs a 3D voxel occupancy grid.
     Architecture: Linear projection -> Reshape -> ConvTranspose3D stack -> Final Conv3D.
@@ -396,23 +363,6 @@ class VoxelProbe(nn.Module):
             padding=final_conv_kernel_size
             // 2,  # 'same' padding to maintain resolution
         )
-
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self.modules():
-            if isinstance(m, (nn.Linear, nn.Conv3d, nn.ConvTranspose3d)):
-                nonlinearity = "relu"
-                if isinstance(self.activation_fn, nn.LeakyReLU):
-                    nonlinearity = "leaky_relu"
-                nn.init.kaiming_normal_(
-                    m.weight, mode="fan_out", nonlinearity=nonlinearity
-                )
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm3d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # Input x is expected to be [Batch, input_dim]

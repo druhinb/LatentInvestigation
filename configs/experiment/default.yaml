@@ -1,0 +1,20 @@
+# Default experiment configuration
+# Includes experiment metadata and common settings
+experiment:
+  name: default_experiment
+  description: "Default experiment description"
+  version: 1
+
+device: ${oc.env:DEVICE, cpu}
+num_workers: 4
+
+# Output directories
+results_dir: ${oc.env:RESULTS_DIR, ./results}
+cache_dir: ${oc.env:CACHE_DIR, ./cache}
+
+# WandB settings
+wandb:
+  enabled: false
+  project: latent-investigation
+  entity: your_entity
+  tags: []

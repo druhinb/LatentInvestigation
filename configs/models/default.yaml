@@ -1,0 +1,5 @@
+# Default model configuration
+# Selects the default backbone model
+# Options: dinov2, ijepa, mocov3, supervised_vit
+_target_: src.models.model_loader.load_model_and_preprocessor
+model_name: dinov2-base
