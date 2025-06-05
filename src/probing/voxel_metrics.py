@@ -1,17 +1,11 @@
 """
 Voxel-based metrics: IoU, precision, recall, F1 for 3D voxel grids.
 """
-<<<<<<< HEAD
 
 import torch
 from typing import Dict
 
 
-=======
-import torch
-from typing import Dict
-
->>>>>>> 9b54dff6f6376eb3d35334ce60964369eda4a2c7
 def compute_voxel_iou(
     predictions: torch.Tensor,
     targets: torch.Tensor,
@@ -29,11 +23,7 @@ def compute_voxel_iou(
         raise ValueError(
             f"Prediction shape {predictions.shape} must match target shape {targets.shape}"
         )
-<<<<<<< HEAD
     pred_binary = torch.sigmoid(predictions) > threshold
-=======
-    pred_binary = (torch.sigmoid(predictions) > threshold)
->>>>>>> 9b54dff6f6376eb3d35334ce60964369eda4a2c7
     target_binary = targets.bool()
     pred_flat = pred_binary.view(pred_binary.shape[0], -1)
     target_flat = target_binary.view(target_binary.shape[0], -1)
@@ -43,10 +33,7 @@ def compute_voxel_iou(
     iou = (intersection + smooth) / (union + smooth)
     return iou.mean().item()
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 9b54dff6f6376eb3d35334ce60964369eda4a2c7
 def compute_voxel_precision_recall_f1(
     predictions: torch.Tensor,
     targets: torch.Tensor,
@@ -64,11 +51,7 @@ def compute_voxel_precision_recall_f1(
         raise ValueError(
             f"Prediction shape {predictions.shape} must match target shape {targets.shape}"
         )
-<<<<<<< HEAD
     pred_binary = torch.sigmoid(predictions) > threshold
-=======
-    pred_binary = (torch.sigmoid(predictions) > threshold)
->>>>>>> 9b54dff6f6376eb3d35334ce60964369eda4a2c7
     target_binary = targets.bool()
     pred_flat = pred_binary.view(pred_binary.shape[0], -1)
     target_flat = target_binary.view(target_binary.shape[0], -1)
@@ -87,10 +70,7 @@ def compute_voxel_precision_recall_f1(
         "voxel_f1": f1.mean().item(),
     }
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 9b54dff6f6376eb3d35334ce60964369eda4a2c7
 def compute_voxel_metrics(
     predictions: torch.Tensor,
     targets: torch.Tensor,
@@ -102,11 +82,10 @@ def compute_voxel_metrics(
     """
     metrics = {}
     metrics["voxel_iou"] = compute_voxel_iou(predictions, targets, threshold, smooth)
-<<<<<<< HEAD
     metrics.update(
         compute_voxel_precision_recall_f1(predictions, targets, threshold, smooth)
     )
-=======
-    metrics.update(compute_voxel_precision_recall_f1(predictions, targets, threshold, smooth))
->>>>>>> 9b54dff6f6376eb3d35334ce60964369eda4a2c7
+    metrics.update(
+        compute_voxel_precision_recall_f1(predictions, targets, threshold, smooth)
+    )
     return metrics
