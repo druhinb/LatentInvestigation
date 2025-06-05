@@ -1,6 +1,11 @@
 # Main configuration file
 defaults:
-  - datasets: shapenet_voxel_meshes
+  - datasets: default
+  - models: default
+  - probing: default
+  - training: default
+  - evaluation: default
+  - experiment: default
   - _self_
 
 # Global settings

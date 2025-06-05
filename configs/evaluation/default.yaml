@@ -1,0 +1,5 @@
+# Default evaluation configuration
+evaluation:
+  metrics: []  # List of metric names to compute, e.g., ['accuracy', 'mae', 'voxel_iou']
+  # Flag for viewpoint-specific metrics
+  viewpoint_specific: false
