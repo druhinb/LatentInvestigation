@@ -1,7 +1,7 @@
 # Main experiment configuration for Phase 1 probing
 defaults:
   - datasets: shapenet_voxel_meshes  # Use which dataset?
-  - models: dinov2 # Use which model?
+  - models: ijepa                    # Use which model?
   - probing: voxel                   # Use which probe config?
   - training: default                # Use default training settings
   - evaluation: default              # Use default evaluation settings
@@ -10,35 +10,27 @@ defaults:
 
 # Override experiment metadata
 experiment:
-  name: phase1_dinov2_voxel_reconstruction
-  description: "Probing DINOv2 for 3D voxel reconstruction"
+  name: phase2_ijepa_voxel_reconstruction
+  description: "Probing IJEPa for 3D voxel reconstruction"
   version: 1
 
 # Hardware settings
-device: mps # cuda, cpu, or mps
+device: cuda# cuda, cpu, or mps
 
 
 # Task configuration
 probing:
   task_type: voxel_reconstruction
-  device: cpu
   probe_types:
     - voxel
   training:
     batch_size: 64
-    epochs: 1
+    epochs: 30
     early_stopping_patience: 15
 
-models: 
-  feature_extraction:
-    layers: [2]
-
 datasets: 
-  num_workers: 1
-  subset_percentage: 0.005
-
-# Override training settings for voxel reconstruction
-
+  num_workers: 4
+  subset_percentage: 0.08
 
 # Paths
 results_dir: ./results
@@ -53,7 +45,7 @@ log_level: INFO
 
 # Wandb integration 
 wandb:
-  enabled: false 
+  enabled: true
   project: latent-investigation
   entity: cse493g1_drn 
   tags:

@@ -54,11 +54,11 @@ class ReconstructionPipeline(BasePipeline):
         cam_params = batch["camera_params"]
         voxels = batch["voxel_gt"]
         B, NV, C, H, W = images.shape
-        feats_dict = self.image_pipeline.extract_features(
+        feats_dict = self.image_pipeline.extract_features_memopt(
             images,
             layers=getattr(self, "layers", None),
             feature_type=getattr(self, "feature_type", "cls_token"),
-            max_batch_size=8,  # Limit batch size for memory
+            max_batch_size=32,  # Limit batch size for memory
         )
         feats_flat = (
             list(feats_dict.values())[0] if feats_dict else torch.empty(B * NV, 0)

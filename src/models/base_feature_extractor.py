@@ -109,7 +109,7 @@ class BaseFeatureExtractor(nn.Module):
         images: torch.Tensor,
         layers: Optional[List[Union[int, str]]] = None,
         feature_type: str = "cls_token",
-        chunk_size: int = 8,
+        chunk_size: int = 32,
     ) -> Dict[str, torch.Tensor]:
         """
         Extract features in chunks to reduce memory usage for large batches.
@@ -122,8 +122,6 @@ class BaseFeatureExtractor(nn.Module):
         """
         batch_size = images.size(0)
         all_features = {}
-
-        logger.info(f"Processing {batch_size} images in chunks of {chunk_size}")
 
         for i in range(0, batch_size, chunk_size):
             chunk_end = min(i + chunk_size, batch_size)
