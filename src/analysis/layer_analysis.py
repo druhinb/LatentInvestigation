@@ -513,15 +513,14 @@ def analyze_experiment_results(
     return analysis
 
 def center_gram(K):
-    n = K.shape[0]
-    identity = torch.eye(n, device=K.device)
-    ones = torch.ones((n, n), device=K.device) / n
-    H = identity - ones
-    return H @ K @ H
+    row_mean = K.mean(dim=1, keepdim=True)
+    col_mean = K.mean(dim=0, keepdim=True)
+    total_mean = K.mean()
+    return K - row_mean - col_mean + total_mean
 
-def get_cka_matrix(layer_features: List[torch.Tensor]):    
+def get_cka_matrix_memory_intesive(layer_features: List[torch.Tensor]):    
     n = len(layer_features)
-    cka_matrix = torch.zeros((n, n), device=layer_features[0].device)
+    cka_matrix = torch.zeros((n, n), device="cpu")
     
     centered_rbf_kernels = []
     for i in range(n):
@@ -531,6 +530,24 @@ def get_cka_matrix(layer_features: List[torch.Tensor]):
         for j in range(i + 1):
             K_X_centered = centered_rbf_kernels[i]
             K_Y_centered = centered_rbf_kernels[j]
+            
+            numerator = (K_X_centered * K_Y_centered).sum()
+            denominator = torch.sqrt((K_X_centered * K_X_centered).sum() * (K_Y_centered * K_Y_centered).sum())
+            
+            cka = numerator / denominator
+            cka_matrix[i, j] = cka
+            cka_matrix[j, i] = cka
+    
+    return cka_matrix
+
+def get_cka_matrix_time_intesive(layer_features: List[torch.Tensor]):    
+    n = len(layer_features)
+    cka_matrix = torch.zeros((n, n), device="cpu")
+    
+    for i in range(n):
+        K_X_centered = center_gram(rbf_kernel(layer_features[i]))
+        for j in range(i + 1):
+            K_Y_centered = center_gram(rbf_kernel(layer_features[j]))
             
             numerator = (K_X_centered * K_Y_centered).sum()
             denominator = torch.sqrt((K_X_centered * K_X_centered).sum() * (K_Y_centered * K_Y_centered).sum())
