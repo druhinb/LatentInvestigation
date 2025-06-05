@@ -7,6 +7,9 @@ import logging
 from .model_loader import load_model_and_preprocessor
 from .feature_collector import FeatureCollector
 from .base_feature_extractor import BaseFeatureExtractor
+from .model_loader import load_model_and_preprocessor
+from .feature_collector import FeatureCollector
+from .base_feature_extractor import BaseFeatureExtractor
 
 logger = logging.getLogger(__name__)
 
