@@ -78,15 +78,11 @@ class LinearProbe(BaseProbe):
         return self.probe(x)
 
     def get_loss_function(self):
-        # Return appropriate loss based on task_type
         if self.task_type == "regression":
             return nn.MSELoss()
         elif self.task_type == "classification":
-            # Assuming multi-class classification; for binary, BCEWithLogitsLoss might be better
-            # if output_dim is 1 and it's binary.
             return nn.CrossEntropyLoss()
         else:
-            # Fallback or raise error
             logger.warning(
                 f"No specific loss function for task_type {self.task_type}, defaulting to MSELoss."
             )
@@ -288,7 +284,7 @@ class VoxelProbe(BaseProbe):
         input_dim: int,
         voxel_resolution: int = 32,
         initial_channels: int = 256,
-        upsampling_channels: List[int] = [128, 64, 32],  # Defines num_upsampling_layers
+        upsampling_channels: List[int] = [128, 64, 32],
         kernel_size_transpose: int = 4,
         stride_transpose: int = 2,
         padding_transpose: int = 1,
@@ -299,7 +295,7 @@ class VoxelProbe(BaseProbe):
         self.input_dim = input_dim
         self.voxel_resolution = voxel_resolution
         self.initial_channels = initial_channels
-        self.task_type = "voxel_reconstruction"  # For ProbeTrainer, if it's extended
+        self.task_type = "voxel_reconstruction"
 
         if activation_fn_str.lower() == "relu":
             self.activation_fn = nn.ReLU(inplace=True)
@@ -355,10 +351,9 @@ class VoxelProbe(BaseProbe):
         self.upsampler = nn.Sequential(*upsampling_layers_list)
 
         # 3. Final Conv3d layer to produce 1 channel (occupancy logits)
-        # The output resolution should match self.voxel_resolution
         self.final_conv = nn.Conv3d(
             in_channels=current_channels,
-            out_channels=1,  # Single channel for occupancy logits
+            out_channels=1,
             kernel_size=final_conv_kernel_size,
             padding=final_conv_kernel_size
             // 2,  # 'same' padding to maintain resolution

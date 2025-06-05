@@ -54,7 +54,7 @@ class ReconstructionPipeline(BasePipeline):
         cam_params = batch["camera_params"]
         voxels = batch["voxel_gt"]
         B, NV, C, H, W = images.shape
-        feats_dict = self.image_pipeline.extract_features_with_memory_optimization(
+        feats_dict = self.image_pipeline.extract_features(
             images,
             layers=getattr(self, "layers", None),
             feature_type=getattr(self, "feature_type", "cls_token"),

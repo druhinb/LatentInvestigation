@@ -60,7 +60,7 @@ class ReconstructionFeatureExtractor(BaseFeatureExtractor):
                 f"Could not auto-setup hooks for {self.model_name}. Intermediate feature extraction might be limited."
             )
 
-    def extract_features_with_memory_optimization(
+    def extract_features(
         self,
         images: torch.Tensor,
         layers: Optional[List[Union[int, str]]] = None,

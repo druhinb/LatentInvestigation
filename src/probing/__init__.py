@@ -1,9 +1,6 @@
 """Probing module for linear and MLP probes with evaluation metrics"""
 
-from .linear_probe import LinearProbe
-from .mlp_probe import MLPProbe
-from .attention_probe import AttentionProbe
-from .probes import VoxelProbe
+from .probes import VoxelProbe, LinearProbe, MLPProbe, AttentionProbe
 from .probes import create_probe, ProbeTrainer
 from .metrics import MetricsTracker
 from .regression_metrics import compute_regression_metrics

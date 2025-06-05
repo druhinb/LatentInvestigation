@@ -11,9 +11,7 @@ logger = logging.getLogger(__name__)
 class BasePipeline:
     """
     Base pipeline for feature extraction or reconstruction processing.
-    Handles caching (pickle) and batching over a DataLoader.
 
-    Subclasses must implement _process_batch(batch) -> (features, targets, metadata_dict)
     """
 
     def __init__(self, cache_dir: Optional[str] = None):
