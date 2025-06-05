@@ -8,8 +8,8 @@ categories: null
 
 # Dataset preparation options
 preparation:
-  render_tar_path: null 
-  voxel_tar_path: null  
+  # render_tar_path: null 
+  # voxel_tar_path: null  
   render_url: "http://cvgl.stanford.edu/data2/ShapeNetRendering.tgz"
   voxel_url: "http://cvgl.stanford.edu/data2/ShapeNetVox32.tgz" 
   auto_download: true  
@@ -39,4 +39,4 @@ splits:
   train_ratio: 0.7
   val_ratio: 0.15
   seed: 42 
-  subset_percentage: 0.005 
+  subset_percentage: 0.08

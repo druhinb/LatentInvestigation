@@ -324,7 +324,7 @@ def prepare_3dr2n2_reconstruction_dataset(cfg: DictConfig) -> Tuple[str, str]:
     if not voxel_extract_dir.exists() or not any(voxel_extract_dir.iterdir()):
         download_and_extract(voxel_url, voxel_tar_path, voxel_extract_dir)
 
-    return Tuple(str(rendering_extract_dir), str(voxel_extract_dir))
+    return tuple(str(rendering_extract_dir), str(voxel_extract_dir))
 
 
 def create_3dr2n2_reconstruction_dataloaders(
