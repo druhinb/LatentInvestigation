@@ -5,7 +5,7 @@ from .mlp_probe import MLPProbe
 from .attention_probe import AttentionProbe
 from .probes import VoxelProbe
 from .probes import create_probe, ProbeTrainer
-
+from .metrics import MetricsTracker
 from .regression_metrics import compute_regression_metrics
 from .classification_metrics import compute_classification_metrics
 from .voxel_metrics import (
@@ -38,6 +38,7 @@ __all__ = [
     "compute_viewpoint_specific_metrics",
     "analyze_error_patterns",
     "to_numpy",
+    "MetricsTracker",
     "ProbingPipeline",
     "ProbingDataset",
     "ReconstructionPipeline",

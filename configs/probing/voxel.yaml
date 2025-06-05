@@ -3,9 +3,8 @@ _target_: src.probing.probes.voxel_probe.VoxelProbe
 
 type: voxel
 
-
 input_dim: 768 
-voxel_resolution: [32, 32, 32] 
+output_dim: [32, 32, 32] 
 initial_volume_size: [4, 4, 4] 
 initial_channels: 256         
 upsampling_channels: [128, 64, 32] 

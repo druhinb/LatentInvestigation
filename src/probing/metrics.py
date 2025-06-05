@@ -5,17 +5,6 @@ This module provides evaluation metrics for both regression
 and classification tasks in the context of probing the SSL vision models
 """
 
-from .regression_metrics import compute_regression_metrics
-from .classification_metrics import compute_classification_metrics
-from .voxel_metrics import (
-    compute_voxel_iou,
-    compute_voxel_precision_recall_f1,
-    compute_voxel_metrics,
-)
-from .viewpoint_metrics import (
-    compute_viewpoint_specific_metrics,
-    analyze_error_patterns,
-)
 import logging
 from typing import Dict, List, Tuple, Optional, Any
 

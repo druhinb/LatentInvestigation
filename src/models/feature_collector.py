@@ -23,10 +23,16 @@ class FeatureCollector:
         self.model_name = model_name
 
     def _num_layers(self) -> int:
-        if hasattr(self.model.config, "num_hidden_layers"):
+        if hasattr(self.model, "config") and hasattr(
+            self.model.config, "num_hidden_layers"
+        ):
             return self.model.config.num_hidden_layers
-        if hasattr(self.model, "blocks"):
+        elif hasattr(self.model, "blocks"):
             return len(self.model.blocks)
+        elif hasattr(self.model, "layers"):
+            return len(self.model.layers)
+        elif hasattr(self.model, "config") and hasattr(self.model.config, "n_layer"):
+            return self.model.config.n_layer
         return 0
 
     def _resolve_indices(self, layers: Optional[List[Union[int, str]]]) -> List[int]:

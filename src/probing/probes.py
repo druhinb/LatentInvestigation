@@ -753,7 +753,7 @@ class ProbeTrainer:
             metrics.update({"mae": mae, "rmse": rmse})
 
         elif self.probe.task_type == "voxel_reconstruction":
-            from src.probing.metrics import compute_voxel_metrics  # Local import
+            from src.probing.voxel_metrics import compute_voxel_metrics
 
             voxel_metrics = compute_voxel_metrics(all_predictions, all_targets)
             metrics.update(voxel_metrics)

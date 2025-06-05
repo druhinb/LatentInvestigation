@@ -66,16 +66,31 @@ class BaseFeatureExtractor(nn.Module):
         images: torch.Tensor,
         layers: Optional[List[Union[int, str]]] = None,
         feature_type: str = "cls_token",
+        chunk_size: Optional[int] = None,
     ) -> Dict[str, torch.Tensor]:
         """
         Extracts features at specified transformer layers and returns a dict of tensors.
+
+        Args:
+            images: Input images tensor
+            layers: Layers to extract from
+            feature_type: Type of features to extract
+            chunk_size: Process images in chunks to reduce memory usage
         """
+        if chunk_size is not None and images.size(0) > chunk_size:
+            return self._extract_features_chunked(
+                images, layers, feature_type, chunk_size
+            )
+
         # reset cache
         self.feature_cache = {}
         # preprocess
         inputs, is_dict = self.preprocessor.preprocess(images)
+
         with torch.no_grad():
-            outputs = self.model(**inputs) if is_dict else self.model(inputs)
+            with torch.cuda.amp.autocast(enabled=torch.cuda.is_available()):
+                outputs = self.model(**inputs) if is_dict else self.model(inputs)
+
         # collect features
         collector = FeatureCollector(
             outputs=outputs,
@@ -83,7 +98,54 @@ class BaseFeatureExtractor(nn.Module):
             model=self.model,
             model_name=self.model_name,
         )
-        return collector.collect(layers, feature_type)
+        results = collector.collect(layers, feature_type)
+
+        self.feature_cache.clear()
+
+        return results
+
+    def _extract_features_chunked(
+        self,
+        images: torch.Tensor,
+        layers: Optional[List[Union[int, str]]] = None,
+        feature_type: str = "cls_token",
+        chunk_size: int = 8,
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Extract features in chunks to reduce memory usage for large batches.
+
+        Args:
+            images: Input images tensor [B, C, H, W]
+            layers: Layers to extract from
+            feature_type: Type of features to extract
+            chunk_size: Number of images to process at once
+        """
+        batch_size = images.size(0)
+        all_features = {}
+
+        logger.info(f"Processing {batch_size} images in chunks of {chunk_size}")
+
+        for i in range(0, batch_size, chunk_size):
+            chunk_end = min(i + chunk_size, batch_size)
+            chunk = images[i:chunk_end]
+
+            chunk_features = self.extract_features(
+                chunk, layers, feature_type, chunk_size=None
+            )
+
+            for key, features in chunk_features.items():
+                if key not in all_features:
+                    all_features[key] = []
+                all_features[key].append(features.cpu())
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+        final_features = {}
+        for key, feature_list in all_features.items():
+            final_features[key] = torch.cat(feature_list, dim=0)
+
+        return final_features
 
     def get_feature_dim(
         self,
@@ -115,6 +177,30 @@ class BaseFeatureExtractor(nn.Module):
             return 768
         first = next(iter(feats.values()))
         return first.shape[-1]
+
+    def get_memory_usage(self) -> Dict[str, float]:
+        """Get current memory usage statistics."""
+        memory_stats = {}
+
+        if torch.cuda.is_available():
+            memory_stats["cuda_allocated"] = (
+                torch.cuda.memory_allocated() / 1024**3
+            )  # GB
+            memory_stats["cuda_reserved"] = torch.cuda.memory_reserved() / 1024**3  # GB
+        elif torch.backends.mps.is_available():
+            # MPS doesn't have detailed memory stats, but we can track basic info
+            memory_stats["mps_available"] = True
+
+        return memory_stats
+
+    def clear_memory(self):
+        """Clear GPU memory and caches."""
+        self.feature_cache.clear()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        elif hasattr(torch, "mps") and torch.backends.mps.is_available():
+            # MPS equivalent (less comprehensive than CUDA)
+            pass
 
     def __del__(self):
         for h in self.hooks:

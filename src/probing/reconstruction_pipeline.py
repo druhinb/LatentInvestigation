@@ -4,7 +4,6 @@ from torch.utils.data import Dataset, DataLoader
 import logging
 
 from .base_pipeline import BasePipeline
-from .reconstruction_processing_pipeline import CameraParameterProcessor
 from ..models.reconstruction_feature_extractor import ReconstructionFeatureExtractor
 
 logger = logging.getLogger(__name__)
@@ -40,13 +39,11 @@ class ReconstructionPipeline(BasePipeline):
     def __init__(
         self,
         image_pipeline: ReconstructionFeatureExtractor,
-        camera_processor: Optional[CameraParameterProcessor] = None,
         device: str = "cpu",
         cache_dir: Optional[str] = None,
     ):
         super().__init__(cache_dir)
         self.image_pipeline = image_pipeline
-        self.camera_processor = camera_processor or CameraParameterProcessor()
         self.device = device
 
     def _process_batch(
@@ -57,22 +54,22 @@ class ReconstructionPipeline(BasePipeline):
         cam_params = batch["camera_params"]
         voxels = batch["voxel_gt"]
         B, NV, C, H, W = images.shape
-        # extract image features per view
-        flat_imgs = images.view(B * NV, C, H, W).to(self.device)
-        feats_dict = self.image_pipeline.extract_features(
-            flat_imgs,
+        feats_dict = self.image_pipeline.extract_features_with_memory_optimization(
+            images,
             layers=getattr(self, "layers", None),
             feature_type=getattr(self, "feature_type", "cls_token"),
+            max_batch_size=8,  # Limit batch size for memory
         )
         feats_flat = (
             list(feats_dict.values())[0] if feats_dict else torch.empty(B * NV, 0)
         )
         feats_views = feats_flat.view(B, NV, -1)
         # process camera params
-        cam_feats = self.camera_processor.process(cam_params.to(self.device)).cpu()
+        cam_feats = cam_params.to(self.device).cpu()
         # combine
         combined = torch.cat((feats_views, cam_feats), dim=-1)
         combined_flat = combined.view(B, -1)
+
         # metadata
         meta = {
             "model_ids": list(batch["model_id"]),

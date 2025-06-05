@@ -1,121 +1,62 @@
 # Main experiment configuration for Phase 1 probing
 defaults:
-  - models: dinov2 # Switched to dinov2 for voxel reconstruction
-  - datasets: shapenet_voxel_meshes # Switched to voxel dataset
-  - probing: voxel # Default to voxel probe config
+  - datasets: shapenet_voxel_meshes  # Use which dataset?
+  - models: dinov2 # Use which model?
+  - probing: voxel                   # Use which probe config?
+  - training: default                # Use default training settings
+  - evaluation: default              # Use default evaluation settings
+  - experiment: default              # Use default experiment settings
   - _self_
 
-# Experiment metadata
+# Override experiment metadata
 experiment:
   name: phase1_dinov2_voxel_reconstruction
   description: "Probing DINOv2 for 3D voxel reconstruction"
   version: 1
 
 # Hardware settings
-device: cuda # or cpu
-num_workers: 4
+device: mps # cuda, cpu, or mps
 
-# Batch sizes
-extraction_batch_size: 64  
-probing_batch_size: 128    
 
-# Probing task configuration
+# Task configuration
 probing:
-  task_type: voxel_reconstruction 
-
-  
-  # Which probe types to run
+  task_type: voxel_reconstruction
+  device: cpu
   probe_types:
     - voxel
-    # - linear # Can add linear/mlp later if we define a flattened voxel prediction task
-    # - mlp
-  
- 
-  voxel:
-    type: voxel
+  training:
+    batch_size: 64
+    epochs: 1
+    early_stopping_patience: 15
 
-    training:
-      optimizer:
-        _target_: torch.optim.Adam
-        lr: 0.001
-        weight_decay: 1e-4
-      
-      scheduler:
-        _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-        mode: max 
-        factor: 0.5
-        patience: 10
-        min_lr: 1e-6
-      
-      epochs: 30
-      early_stopping_patience: 15 
-      batch_size: 64
+models: 
+  feature_extraction:
+    layers: [2]
 
-  # Linear probe settings
-  linear:
-    type: linear
-    dropout_rate: 0.0
-    bias: true
-    
-    training:
-      optimizer:
-        _target_: torch.optim.Adam
-        lr: 0.001
-        weight_decay: 1e-4
-      
-      scheduler:
-        _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-        mode: min
-        factor: 0.5
-        patience: 10
-        min_lr: 1e-6
-      
-      epochs: 30
-      early_stopping_patience: 15
-      batch_size: 64
-  
-  # MLP probe settings
-  mlp:
-    type: mlp
-    hidden_dims: [256, 128]
-    activation: relu
-    dropout_rate: 0.1
-    batch_norm: false
-    bias: true
-    
-    training:
-      optimizer:
-        _target_: torch.optim.Adam
-        lr: 0.001
-        weight_decay: 1e-4
-      
-      scheduler:
-        _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
-        mode: min
-        factor: 0.5
-        patience: 10
-        min_lr: 1e-6
-      
-      epochs: 40
-      early_stopping_patience: 15
-      batch_size: 64
+datasets: 
+  num_workers: 1
+  subset_percentage: 0.005
+
+# Override training settings for voxel reconstruction
+
 
 # Paths
 results_dir: ./results
 cache_dir: ./cache
+
+# Global settings
+data_dir: ./data
+seed: 42
 
 # Logging
 log_level: INFO
 
 # Wandb integration 
 wandb:
-  enabled: true 
+  enabled: false 
   project: latent-investigation
   entity: cse493g1_drn 
   tags:
     - phase1
-    - voxel_reconstruction # Updated tag
+    - voxel_reconstruction
     - ${models.model_name}
-
-# Reproducibility
-seed: 42

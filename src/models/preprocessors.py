@@ -1,5 +1,8 @@
 import torch
 from typing import Tuple, Union, Dict
+from torchvision import transforms
+from PIL import Image
+import torchvision.transforms.functional as F
 
 
 class BasePreprocessor:
@@ -59,8 +62,30 @@ class TimmPreprocessor(BasePreprocessor):
         self.size = {"height": h, "width": w}
 
     def preprocess(self, images: torch.Tensor):
-        # Apply transform to each image and stack
-        processed = torch.stack([self.transform(img) for img in images]).to(self.device)
+        processed_images = []
+
+        for img in images:
+            if isinstance(img, torch.Tensor):
+                has_to_tensor = any(
+                    isinstance(t, transforms.ToTensor)
+                    for t in self.transform.transforms
+                    if hasattr(self.transform, "transforms")
+                )
+
+                if has_to_tensor:
+                    if img.dim() == 3 and img.shape[0] in [1, 3]:  # [C, H, W]
+                        img_pil = F.to_pil_image(img.clamp(0, 1))
+                        processed_img = self.transform(img_pil)
+                    else:
+                        processed_img = self.transform(img)
+                else:
+                    processed_img = self.transform(img)
+            else:
+                processed_img = self.transform(img)
+
+            processed_images.append(processed_img)
+
+        processed = torch.stack(processed_images).to(self.device)
         return processed, False
 
 

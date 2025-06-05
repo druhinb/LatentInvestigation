@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Standard model mapping for loader
 MODEL_MAPPINGS = {
     "dinov2": ("facebook/dinov2-base", "hf"),
-    "ijepa": ("facebook/vit-huge-patch14-224-ijepa", "hf"),
+    "ijepa": ("facebook/vit_huge_patch14_224_ijepa", "timm"),
     "mocov3": ("vit_base_patch16_224.mocov3_in1k", "timm"),
     "supervised_vit": ("google/vit-base-patch16-224", "hf"),
     "dinov2_vits14": ("facebook/dinov2-small", "hf"),
