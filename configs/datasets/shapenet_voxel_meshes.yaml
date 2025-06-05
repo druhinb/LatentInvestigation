@@ -39,4 +39,4 @@ splits:
 train_ratio: 0.7
 val_ratio: 0.15
 split_seed: 42 
-subset_percentage: 0.005
+subset_percentage: 0.08
