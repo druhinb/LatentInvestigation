@@ -97,6 +97,20 @@ class ShapeNet3DR2N2(BaseSplitDataset):
                     )
         return samples
 
+    def _read_camera_params(self, metadata_file):
+        """Read camera parameters from metadata"""
+        params = []
+        with open(metadata_file, "r") as f:
+            for i, line in enumerate(f):
+                if i >= 24:  # Only 24 views
+                    break
+                parts = line.strip().split()
+                # Format: azimuth elevation tilt distance
+                params.append(
+                    {"azimuth": float(parts[0]), "elevation": float(parts[1])}
+                )
+        return params
+
     def __getitem__(self, idx):  # no change
         sample = super().__getitem__(idx)
 
