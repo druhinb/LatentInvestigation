@@ -25,6 +25,8 @@ checkpoints/
 *.pt
 *.ckpt
 notebooks/cache/*
+notebooks/cache_old/*
+notebooks/final_analysis/*
 
 # Dataset files
 train.lst
