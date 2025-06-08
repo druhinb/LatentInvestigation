@@ -21,7 +21,6 @@ for root, _, files in os.walk(source):
         src_path = os.path.join(root, fname)
         dst_path = None
 
-        # Rule 1: Probes (.pth) - using the corrected regex
         probe_match = re.search(
             r"((?:[a-zA-Z0-9_]+_)?(?:linear|mlp|voxel))_layer_(\d+)_probe\.pth", fname
         )
@@ -33,7 +32,6 @@ for root, _, files in os.walk(source):
                 dst_folder = os.path.join(target, exp_name, "probes")
                 dst_path = os.path.join(dst_folder, f"{probe_type}_layer_{layer}.pth")
 
-        # Rule 2: Handle .pkl Feature Files (using your broad logic)
         elif fname.endswith(".pkl"):
             feat_match = re.search(
                 r"_(\d+)_(train|val|test)_reconstruction_prepared_data\.pkl", fname
@@ -46,7 +44,6 @@ for root, _, files in os.walk(source):
                     dst_folder = os.path.join(target, exp_name, "features")
                     dst_path = os.path.join(dst_folder, f"layer_{layer}_{split}.pkl")
 
-        # Rule 3: Handle loose feature files (using your broad logic)
         elif "features" in src_path.split(os.sep):
             feat_match = re.match(r"(.*?)_layer_(\d+)_(train|val|test)", fname)
             if feat_match:
